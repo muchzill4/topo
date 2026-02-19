@@ -30,7 +30,7 @@ var (
 	}
 )
 
-type execSSH func(target ssh.Host, command string) (string, error)
+type execSSH func(target ssh.Host, command string, stdin []byte, sshArgs ...string) (string, error)
 
 type Connection struct {
 	SSHTarget ssh.Host
@@ -43,6 +43,8 @@ type ConnectionOptions struct {
 	AcceptNewHostKeys bool
 	AuthProbeInput    io.Reader
 	AuthProbeOutput   io.Writer
+	WithLoginShell    bool
+	WithStdin         []byte
 }
 
 var ErrPasswordAuthentication = errors.New("only password authentication is configured; key-based ssh is required")
@@ -56,14 +58,23 @@ func NewConnection(sshTarget string, exec execSSH, opts ConnectionOptions) Conne
 }
 
 func (c *Connection) Run(command string) (string, error) {
-	return c.exec(c.SSHTarget, command)
+	if c.opts.WithLoginShell {
+		command = ssh.ShellCommand(command)
+	}
+
+	stdout, err := c.exec(c.SSHTarget, command, c.opts.WithStdin)
+	if err != nil {
+		return "", err
+	}
+	return stdout, nil
 }
 
 func (c *Connection) BinaryExists(bin string) (bool, error) {
 	if err := ssh.ValidateBinaryName(bin); err != nil {
 		return false, err
 	}
-	_, err := c.exec(c.SSHTarget, ssh.ShellCommand(fmt.Sprintf("command -v %s", bin)))
+
+	_, err := c.Run(fmt.Sprintf("command -v %s", bin))
 	return err == nil, nil
 }
 
@@ -73,7 +84,7 @@ func (c *Connection) ProbeAuthentication() error {
 	}
 
 	if !c.opts.AcceptNewHostKeys {
-		err := c.runSSHProbe(knownHostProbeArgs)
+		err := c.runSSHAuthenticationProbe(knownHostProbeArgs)
 		if err != nil && !errors.Is(err, ErrAuthenticationFailure) {
 			return err
 		}
@@ -102,7 +113,7 @@ func (c *Connection) isPasswordAuthenticated() (bool, error) {
 
 	// If public key auth succeeds, the target doesn't require password auth.
 	publicArgs := slices.Clone(publicKeyProbeArgs)
-	if err := c.runSSHProbe(slices.Concat(publicArgs, extraArgs)); err == nil {
+	if err := c.runSSHAuthenticationProbe(slices.Concat(publicArgs, extraArgs)); err == nil {
 		return false, nil
 	} else if !errors.Is(err, ErrAuthenticationFailure) {
 		return false, err
@@ -110,7 +121,7 @@ func (c *Connection) isPasswordAuthenticated() (bool, error) {
 
 	// Public key was rejected. Check if the target accepts password auth.
 	passwordArgs := slices.Clone(passwordProbeArgs)
-	if err := c.runSSHProbe(slices.Concat(passwordArgs, extraArgs)); err == nil {
+	if err := c.runSSHAuthenticationProbe(slices.Concat(passwordArgs, extraArgs)); err == nil {
 		return false, nil
 	} else if errors.Is(err, ErrAuthenticationFailure) {
 		return true, nil
@@ -119,13 +130,14 @@ func (c *Connection) isPasswordAuthenticated() (bool, error) {
 	}
 }
 
-func (c *Connection) runSSHProbe(sshArgs []string) error {
-	stdout, stderr, err := ssh.Exec(c.SSHTarget, "true", nil, sshArgs...)
+// All SSH authentication probes run the command "true" to check if the authentication method works.
+// All sshArgs should be hardcoded SSH options, not user-provided arguments.
+func (c *Connection) runSSHAuthenticationProbe(sshArgs []string) error {
+	stdout, err := c.exec(c.SSHTarget, "true", nil, sshArgs...)
 	if err == nil {
 		return nil
 	}
-	output := stdout + stderr
-	output = strings.ToLower(output)
+	output := strings.ToLower(stdout)
 	if strings.Contains(output, "host key verification failed") {
 		return ErrHostKeyVerification
 	}

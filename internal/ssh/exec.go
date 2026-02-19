@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -34,32 +35,14 @@ func ShellCommand(command string) string {
 	return fmt.Sprintf(`/bin/sh -c "exec ${SHELL:-/bin/sh} -l -c \"%s\""`, escaped)
 }
 
-func ExecSSH(target Host, command string) (string, error) {
-	cmd := exec.Command("ssh", string(target), command)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("ssh command to %s failed: %w | stderr: %s", target, err, stderr.String())
-	}
-
-	return stdout.String(), nil
-}
-
-func ExecSSHWithShell(target Host, command string) (string, error) {
-	return ExecSSH(target, ShellCommand(command))
-}
-
 // Exec runs a command on the target host. If the target is localhost, it runs locally.
 // Pass stdin data as optional parameter, or nil for no stdin.
-func Exec(target Host, command string, stdin []byte, sshArgs ...string) (stdout, stderr string, err error) {
+func Exec(target Host, command string, stdin []byte, sshArgs ...string) (string, error) {
 	var cmd *exec.Cmd
 	if target.IsPlainLocalhost() {
 		cmd = exec.Command("/bin/sh", "-c", command)
 	} else {
-		args := append([]string{}, sshArgs...)
-		args = append(args, string(target), command)
+		args := slices.Concat(sshArgs, []string{string(target), command})
 		cmd = exec.Command("ssh", args...)
 	}
 
@@ -70,15 +53,10 @@ func Exec(target Host, command string, stdin []byte, sshArgs ...string) (stdout,
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
-	err = cmd.Run()
-	return stdoutBuf.String(), stderrBuf.String(), err
-}
-
-// ExecWithShell runs a command in a login shell on the target host. If the target is localhost, it runs locally.
-func ExecWithShell(target Host, command string) (string, error) {
-	stdout, stderr, err := Exec(target, ShellCommand(command), nil)
+	err := cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("command failed: %w | stderr: %s", err, stderr)
+		combined := stdoutBuf.String() + stderrBuf.String()
+		return combined, fmt.Errorf("ssh command to %s failed: %w | stderr: %s", string(target), err, stderrBuf.String())
 	}
-	return stdout, nil
+	return stdoutBuf.String(), nil
 }
