@@ -2,6 +2,7 @@ package target_test
 
 import (
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/arm/topo/internal/ssh"
@@ -33,6 +34,40 @@ func TestRun(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Empty(t, out)
+	})
+
+	t.Run("run with mutliplexing enabled includes Control args", func(t *testing.T) {
+		testutil.RequireOS(t, "linux")
+		var capturedArgs string
+		mockExec := func(_ ssh.Host, _ string, _ []byte, sshArgs ...string) *exec.Cmd {
+			capturedArgs = strings.Join(sshArgs, " ")
+			return testutil.CmdWithOutput("success", 0)
+		}
+		conn := target.NewConnection("hostname", mockExec, target.ConnectionOptions{Multiplex: true})
+
+		_, err := conn.Run("ls")
+
+		assert.NoError(t, err)
+		assert.True(t, strings.Contains(capturedArgs, "-o ControlMaster"), "missing ControlMaster argument")
+		assert.True(t, strings.Contains(capturedArgs, "-o ControlPersist"), "missing ControlPersist argument")
+		assert.True(t, strings.Contains(capturedArgs, "-o ControlPath"), "missing ControlPath argument")
+	})
+
+	t.Run("run with mutliplexing enabled does not include Control args on windows", func(t *testing.T) {
+		testutil.RequireOS(t, "windows")
+		var capturedArgs string
+		mockExec := func(_ ssh.Host, _ string, _ []byte, sshArgs ...string) *exec.Cmd {
+			capturedArgs = strings.Join(sshArgs, " ")
+			return testutil.CmdWithOutput("success", 0)
+		}
+		conn := target.NewConnection("hostname", mockExec, target.ConnectionOptions{Multiplex: true})
+
+		_, err := conn.Run("ls")
+
+		assert.NoError(t, err)
+		assert.False(t, strings.Contains(capturedArgs, "-o ControlMaster"), "unexpected ControlMaster argument")
+		assert.False(t, strings.Contains(capturedArgs, "-o ControlPersist"), "unexpected ControlPersist argument")
+		assert.False(t, strings.Contains(capturedArgs, "-o ControlPath"), "unexpected ControlPath argument")
 	})
 }
 
