@@ -9,6 +9,7 @@ import (
 	"github.com/arm/topo/internal/target"
 )
 
+// #nosec G101 -- Does not contain hardcoded credentials
 const passwordAuthErrorMessage = `note: Topo does not support SSH password-based authentication. To connect, either:
 - create your own SSH keys for the target, or
 - run 'topo setup-keys --target %s' to let Topo generate keys and configure passwordless authentication`

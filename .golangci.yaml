@@ -4,3 +4,18 @@ formatters:
   enable:
     - gofmt
     - gofumpt
+
+linters:
+  enable:
+    - gosec
+  settings:
+    gosec:
+      excludes:
+        - G304
+      severity: high
+      confidence: medium
+  exclusions:
+    rules:
+      - path: (.+)_test.go
+        linters:
+          - gosec

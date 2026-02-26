@@ -197,7 +197,7 @@ func Init(projectDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal compose file: %w", err)
 	}
-	if err := os.WriteFile(composePath, data, 0o644); err != nil {
+	if err := os.WriteFile(composePath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write compose file: %w", err)
 	}
 	return nil
