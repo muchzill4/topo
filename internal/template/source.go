@@ -234,7 +234,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	// #nosec G703 -- dst has been validated prior to this function
+	// #nosec G703 -- dst is a user-specified destination directory; writing there is intentional
 	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
 	if err != nil {
 		return err
