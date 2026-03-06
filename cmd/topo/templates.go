@@ -5,12 +5,17 @@ import (
 	"os"
 
 	"github.com/arm/topo/internal/catalog"
+	"github.com/arm/topo/internal/describe"
 	"github.com/arm/topo/internal/output/printable"
 	"github.com/arm/topo/internal/output/templates"
+	"github.com/arm/topo/internal/target"
 	"github.com/spf13/cobra"
 )
 
-var templateFilters catalog.TemplateFilters
+var (
+	templateFilters       catalog.TemplateFilters
+	targetDescriptionPath string
+)
 
 var templatesCmd = &cobra.Command{
 	Use:   "templates",
@@ -22,9 +27,12 @@ var templatesCmd = &cobra.Command{
 			return err
 		}
 
-		resolvedTarget, exists := lookupTarget(cmd)
-		if exists {
-			templateFilters.Target = resolvedTarget
+		// even if the target flag was not used, TOPO_TARGET may be set, so we check if the resolved target is non-empty
+		if targetDescriptionPath == "" {
+			resolvedTarget, exists := lookupTarget(cmd)
+			if exists {
+				templateFilters.Target = resolvedTarget
+			}
 		}
 
 		repos, err := catalog.ParseRepos(catalog.TemplatesJSON)
@@ -36,7 +44,17 @@ var templatesCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("could not filter templates: %w", err)
 		}
-		return printable.Print(templates.RepoCollection(repos), os.Stdout, outputFormat)
+
+		var profile *target.HardwareProfile
+		if targetDescriptionPath != "" {
+			profile, err = describe.ReadTargetDescriptionFromFile(targetDescriptionPath)
+			if err != nil {
+				return err
+			}
+		}
+
+		reposWithCompatibility := catalog.AnnotateCompatibility(profile, repos)
+		return printable.Print(templates.RepoCollection(reposWithCompatibility), os.Stdout, outputFormat)
 	},
 }
 
@@ -48,6 +66,13 @@ func init() {
 		[]string{},
 		"Only show templates that use the indicated arm feature (NEON, SVE, SME, SVE2, SME2)",
 	)
+	templatesCmd.Flags().StringVar(
+		&targetDescriptionPath,
+		"target-description",
+		"",
+		"Path to the target description file used to show template compatibility",
+	)
 	templatesCmd.MarkFlagsMutuallyExclusive("target", "feature")
+	templatesCmd.MarkFlagsMutuallyExclusive("target", "target-description")
 	rootCmd.AddCommand(templatesCmd)
 }
