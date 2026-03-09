@@ -46,7 +46,7 @@ jobs:
             Major) new="$((major+1)).0.0";;
             Minor) new="$major.$((minor+1)).0";;
             Patch) new="$major.$minor.$((patch+1))";;
-            Pre-release) new="$base-$(date +%Y%m%d%H%M%S)";;
+            Pre-release) new="$base-$(date +%Y-%m-%d-%H-%M-%S)";;
             *) echo "invalid release type"; exit 1;;
           esac
           echo "version=$new" >> $GITHUB_OUTPUT
@@ -78,22 +78,31 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: v${{ steps.version.outputs.version }}
 
-      - name: Upload all archive artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: topo-v${{ steps.version.outputs.version }}-archives
-          path: |
-            dist/*.tar.gz
-            dist/*.zip
-            dist/checksums.txt
+      - name: delete the build folders now the archives are there
+        run: find dist -maxdepth 1 -type d -name 'topo_*_*_v*' -exec rm -rf {} +
+
+      - name: decompress the archives for signing
+        run: |
+          for archive in dist/*.tar.gz; do
+            base="${archive##*/}"
+            dir="dist/${base%.tar.gz}"
+            mkdir -p "$dir"
+            tar -xzf "$archive" -C "$dir"
+          done
+          for archive in dist/*.zip; do
+            base="${archive##*/}"
+            dir="dist/${base%.zip}"
+            mkdir -p "$dir"
+            unzip -o "$archive" -d "$dir"
+          done
 
       - name: Upload unsigned macOS artifact
         uses: actions/upload-artifact@v7
         with:
           name: topo-v${{ steps.version.outputs.version }}-macos-unsigned
           path: |
-            dist/topo_darwin_amd64_*/topo
-            dist/topo_darwin_arm64_*/topo
+            dist/topo_darwin_amd64
+            dist/topo_darwin_arm64
           if-no-files-found: error
 
       - name: Upload unsigned Windows artifacts
@@ -101,8 +110,8 @@ jobs:
         with:
           name: topo-v${{ steps.version.outputs.version }}-windows-unsigned
           path: |
-            dist/topo_windows_amd64_*/topo.exe
-            dist/topo_windows_arm64_*/topo.exe
+            dist/topo_windows_amd64
+            dist/topo_windows_arm64
           if-no-files-found: error
 
       - name: Create GitHub App token for signer
@@ -113,24 +122,6 @@ jobs:
           private-key: ${{ secrets.ML_REPO_ACCESS_PRIVATE_KEY }}
           owner: Arm-debug
           repositories: signer
-      
-      - name: Trigger upload archives to artifactory workflow
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          OWNER: Arm-debug
-          REPO: signer
-          WORKFLOW_FILE: upload_archives_to_artifactory.yml
-          REF: main
-          UPSTREAM_RUN_ID: ${{ github.run_id }}
-        run: |
-          gh workflow run "$WORKFLOW_FILE" \
-            --repo "$OWNER/$REPO" \
-            --ref "$REF" \
-            -f "run-id=$UPSTREAM_RUN_ID" \
-            -f "release-version=${{ steps.version.outputs.version }}" \
-            -f "archive-name=topo-v${{ steps.version.outputs.version }}-archives" \
-            -f "repo-name=topo" \
-            -f "org-name=arm" \
 
       - name: Trigger macOS signer workflow
         env:
@@ -150,6 +141,7 @@ jobs:
             -f "repo-name=topo" \
             -f "org-name=arm" \
             -f "binary-name=topo" \
+            -f "artifactory-uploadables=topo_darwin_*"
 
       - name: Trigger Windows signer workflow
         env:
@@ -170,3 +162,35 @@ jobs:
             -f "org-name=arm" \
             -f "binary-name=topo.exe" \
             -f "signing-artifactory-repo=edge-ai-tooling.topo-cli-signing" \
+            -f "artifactory-uploadables=topo_windows_*"
+
+      - name: Upload linux artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: topo-v${{ steps.version.outputs.version }}-linux
+          path: |
+            dist/topo_linux_amd64
+            dist/topo_linux_arm64
+          if-no-files-found: error
+
+      - name: Trigger archive and upload to artifactory workflow for linux artifacts
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          OWNER: Arm-debug
+          REPO: signer
+          WORKFLOW_FILE: archive-and-upload-to-artifactory.yml
+          REF: main
+          UPSTREAM_RUN_ID: ${{ github.run_id }}
+        run: |
+          gh workflow run "$WORKFLOW_FILE" \
+            --repo "$OWNER/$REPO" \
+            --ref "$REF" \
+            -f "run-id=$UPSTREAM_RUN_ID" \
+            -f "release-version=${{ steps.version.outputs.version }}" \
+            -f "archive-name=topo-v${{ steps.version.outputs.version }}-linux" \
+            -f "artifactory-path=linux" \
+            -f "repo-name=topo" \
+            -f "org-name=arm" \
+            -f "artifactory-uploadables=topo_linux_*" \
+            -f "archive-format=tar.gz" \
+            -f "executables=*/topo"
