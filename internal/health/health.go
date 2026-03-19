@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -68,8 +67,6 @@ func CheckHost() HostReport {
 func CheckTarget(sshTarget string, acceptNewHostKeys bool, connectTimeout time.Duration) (TargetReport, error) {
 	opts := target.ConnectionOptions{
 		AcceptNewHostKeys: acceptNewHostKeys,
-		AuthProbeInput:    os.Stdin,
-		AuthProbeOutput:   os.Stdout,
 		Multiplex:         true,
 		WithLoginShell:    true,
 		ConnectTimeout:    connectTimeout,
