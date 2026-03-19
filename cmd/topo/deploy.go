@@ -87,7 +87,7 @@ Use --dry-run to see what commands would be executed without actually running th
 			return err
 		}
 
-		targetHost := ssh.Host(resolvedTarget)
+		targetHost := ssh.Destination(resolvedTarget)
 		deployOpts.TargetHost = targetHost
 
 		if !skipProjectChecks {

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHost(t *testing.T) {
+func TestDestination(t *testing.T) {
 	t.Run("IsPlainLocalhost", func(t *testing.T) {
 		t.Run("returns true for plain localhost", func(t *testing.T) {
 			tests := []string{
@@ -20,9 +20,9 @@ func TestHost(t *testing.T) {
 
 			for _, input := range tests {
 				t.Run(input, func(t *testing.T) {
-					h := ssh.Host(input)
+					d := ssh.Destination(input)
 
-					assert.True(t, h.IsPlainLocalhost())
+					assert.True(t, d.IsPlainLocalhost())
 				})
 			}
 		})
@@ -37,9 +37,9 @@ func TestHost(t *testing.T) {
 
 			for _, input := range tests {
 				t.Run(input, func(t *testing.T) {
-					h := ssh.Host(input)
+					d := ssh.Destination(input)
 
-					assert.False(t, h.IsPlainLocalhost())
+					assert.False(t, d.IsPlainLocalhost())
 				})
 			}
 		})
@@ -53,9 +53,9 @@ func TestHost(t *testing.T) {
 
 			for _, input := range tests {
 				t.Run(input, func(t *testing.T) {
-					h := ssh.Host(input)
+					d := ssh.Destination(input)
 
-					assert.False(t, h.IsPlainLocalhost())
+					assert.False(t, d.IsPlainLocalhost())
 				})
 			}
 		})
@@ -71,9 +71,9 @@ func TestHost(t *testing.T) {
 
 			for _, input := range tests {
 				t.Run(input, func(t *testing.T) {
-					h := ssh.Host(input)
+					d := ssh.Destination(input)
 
-					assert.True(t, h.IsLocalhost())
+					assert.True(t, d.IsLocalhost())
 				})
 			}
 		})
@@ -88,9 +88,9 @@ func TestHost(t *testing.T) {
 
 			for _, input := range tests {
 				t.Run(input, func(t *testing.T) {
-					h := ssh.Host(input)
+					d := ssh.Destination(input)
 
-					assert.True(t, h.IsLocalhost())
+					assert.True(t, d.IsLocalhost())
 				})
 			}
 		})
@@ -98,15 +98,15 @@ func TestHost(t *testing.T) {
 
 	t.Run("AsURI", func(t *testing.T) {
 		t.Run("returns uri form of host string", func(t *testing.T) {
-			h := ssh.Host("user@host")
+			d := ssh.Destination("user@host")
 
-			assert.Equal(t, "ssh://user@host", h.AsURI())
+			assert.Equal(t, "ssh://user@host", d.AsURI())
 		})
 
 		t.Run("doesn't duplicate ssh:// scheme", func(t *testing.T) {
-			h := ssh.Host("ssh://user@host:123")
+			d := ssh.Destination("ssh://user@host:123")
 
-			assert.Equal(t, "ssh://user@host:123", h.AsURI())
+			assert.Equal(t, "ssh://user@host:123", d.AsURI())
 		})
 	})
 
@@ -122,7 +122,7 @@ func TestHost(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.input, func(t *testing.T) {
-				require.Equal(t, tt.want, ssh.Host(tt.input).Slugify(), "Slugify should replace special characters with underscores and keep allowed characters")
+				require.Equal(t, tt.want, ssh.Destination(tt.input).Slugify(), "Slugify should replace special characters with underscores and keep allowed characters")
 			})
 		}
 	})

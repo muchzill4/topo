@@ -14,11 +14,11 @@ import (
 
 type DockerComposePipeTransfer struct {
 	composeFile string
-	sourceHost  ssh.Host
-	targetHost  ssh.Host
+	sourceHost  ssh.Destination
+	targetHost  ssh.Destination
 }
 
-func NewDockerComposePipeTransfer(composeFile string, sourceHost, targetHost ssh.Host) *DockerComposePipeTransfer {
+func NewDockerComposePipeTransfer(composeFile string, sourceHost, targetHost ssh.Destination) *DockerComposePipeTransfer {
 	return &DockerComposePipeTransfer{
 		composeFile: composeFile,
 		sourceHost:  sourceHost,
