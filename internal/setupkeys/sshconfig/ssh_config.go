@@ -1,6 +1,7 @@
 package sshconfig
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -59,10 +60,15 @@ func ModifySSHConfig(targetHost string, privKeyPath string, targetSlug string, d
 		return errMain
 	}
 
-	configBody := buildSSHConfigFragment(targetHost, privKeyPath)
+	var fragmentToWrite []byte
+	if len(existingTopoContent) == 0 {
+		fragmentToWrite = buildSSHConfigFragment(targetHost, privKeyPath)
+	} else {
+		fragmentToWrite = mergeOwnedSSHConfigDirectives(existingTopoContent, privKeyPath)
+	}
 
-	if string(existingTopoContent) != configBody {
-		if err := os.WriteFile(sshTopoConfigPath, []byte(configBody), 0o600); err != nil {
+	if !bytes.Equal(existingTopoContent, fragmentToWrite) {
+		if err := os.WriteFile(sshTopoConfigPath, fragmentToWrite, 0o600); err != nil {
 			return fmt.Errorf("failed to write %s: %w", sshTopoConfigPath, err)
 		}
 	}
@@ -99,7 +105,7 @@ func hasIncludeLine(data []byte, includeLine string) bool {
 	return false
 }
 
-func buildSSHConfigFragment(targetHost string, privKeyPath string) string {
+func buildSSHConfigFragment(targetHost string, privKeyPath string) []byte {
 	user, host, port := ssh.SplitUserHostPort(targetHost)
 	hostAlias := host
 	if hostAlias == "" {
@@ -121,5 +127,27 @@ func buildSSHConfigFragment(targetHost string, privKeyPath string) string {
 	// needs to be this way even on Windows to work with ssh config parsing, which generally accepts forward slashes
 	fmt.Fprintf(&b, "  IdentityFile %s\n", filepath.ToSlash(privKeyPath))
 	b.WriteString("  IdentitiesOnly yes\n")
-	return b.String()
+	return []byte(b.String())
+}
+
+func mergeOwnedSSHConfigDirectives(existing []byte, privKeyPath string) []byte {
+	identityLine := []byte(fmt.Sprintf("  IdentityFile %s", filepath.ToSlash(privKeyPath)))
+	identitiesOnlyLine := []byte("  IdentitiesOnly yes")
+	var merged [][]byte
+
+	for line := range bytes.SplitSeq(bytes.TrimRight(existing, "\n"), []byte("\n")) {
+		trimmed := bytes.TrimSpace(line)
+
+		switch {
+		case bytes.HasPrefix(trimmed, []byte("IdentityFile ")):
+			continue
+		case bytes.HasPrefix(trimmed, []byte("IdentitiesOnly ")):
+			continue
+		default:
+			merged = append(merged, line)
+		}
+	}
+
+	merged = append(merged, identityLine, identitiesOnlyLine)
+	return append(bytes.Join(merged, []byte("\n")), '\n')
 }
