@@ -30,12 +30,12 @@ Use --dry-run to see what commands would be executed without actually running th
 			panic(fmt.Sprintf("internal error: dry-run flag not registered: %v", err))
 		}
 
-		resolvedTarget, err := requireTarget(cmd)
+		targetArg, err := requireTarget(cmd)
 		if err != nil {
 			return err
 		}
 
-		targetSlug := ssh.Destination(resolvedTarget).Slugify()
+		targetSlug := ssh.NewConfig(targetArg).Slugify()
 		if privateKeyPath == "" {
 			privateKeyPath, err = setupkeys.GetDefaultPrivateKeyPath(targetSlug)
 			if err != nil {
@@ -48,7 +48,8 @@ Use --dry-run to see what commands would be executed without actually running th
 			return err
 		}
 
-		seq, err := setupkeys.NewKeySetup(resolvedTarget, privateKeyPath, parsedKeyType)
+		cfg := ssh.NewConfig(targetArg)
+		seq, err := setupkeys.NewKeySetup(cfg.Destination, privateKeyPath, parsedKeyType)
 		if err != nil {
 			return err
 		}
@@ -63,7 +64,7 @@ Use --dry-run to see what commands would be executed without actually running th
 			return err
 		}
 
-		return sshconfig.ModifySSHConfig(resolvedTarget, privateKeyPath, targetSlug, dryRun, os.Stdout)
+		return sshconfig.ModifySSHConfig(targetArg, privateKeyPath, targetSlug, dryRun, os.Stdout)
 	},
 }
 

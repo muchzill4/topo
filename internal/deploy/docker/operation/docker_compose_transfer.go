@@ -14,15 +14,15 @@ import (
 
 type DockerComposePipeTransfer struct {
 	composeFile string
-	sourceHost  ssh.Destination
-	targetHost  ssh.Destination
+	source      ssh.Destination
+	dest        ssh.Destination
 }
 
-func NewDockerComposePipeTransfer(composeFile string, sourceHost, targetHost ssh.Destination) *DockerComposePipeTransfer {
+func NewDockerComposePipeTransfer(composeFile string, source, dest ssh.Destination) *DockerComposePipeTransfer {
 	return &DockerComposePipeTransfer{
 		composeFile: composeFile,
-		sourceHost:  sourceHost,
-		targetHost:  targetHost,
+		source:      source,
+		dest:        dest,
 	}
 }
 
@@ -60,13 +60,13 @@ func (t *DockerComposePipeTransfer) DryRun(output io.Writer) error {
 }
 
 func (t *DockerComposePipeTransfer) buildTransferCommands(imageName string) (*exec.Cmd, *exec.Cmd) {
-	saveCmd := command.Docker(t.sourceHost, "save", imageName)
-	loadCmd := command.Docker(t.targetHost, "load")
+	saveCmd := command.Docker(t.source, "save", imageName)
+	loadCmd := command.Docker(t.dest, "load")
 	return saveCmd, loadCmd
 }
 
 func (t *DockerComposePipeTransfer) getImagesFromCompose(cmdOutput io.Writer) ([]string, error) {
-	cmd := command.DockerCompose(t.sourceHost, t.composeFile, "config", "--images")
+	cmd := command.DockerCompose(t.source, t.composeFile, "config", "--images")
 	cmd.Stderr = cmdOutput
 	output, err := cmd.Output()
 	if err != nil {

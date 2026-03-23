@@ -68,7 +68,7 @@ Use --dry-run to see what commands would be executed without actually running th
 			})
 		}
 
-		resolvedTarget, err := requireTarget(cmd)
+		targetArg, err := requireTarget(cmd)
 		if err != nil {
 			return err
 		}
@@ -87,8 +87,8 @@ Use --dry-run to see what commands would be executed without actually running th
 			return err
 		}
 
-		targetHost := ssh.Destination(resolvedTarget)
-		deployOpts.TargetHost = targetHost
+		cfg := ssh.NewConfig(targetArg)
+		deployOpts.TargetHost = cfg.Destination
 
 		if !skipProjectChecks {
 			if err := checks.EnsureProjectIsLinuxArm64Ready(composeFile); err != nil {
@@ -97,7 +97,7 @@ Use --dry-run to see what commands would be executed without actually running th
 		}
 
 		goos := runtime.GOOS
-		if docker.SupportsRegistry(noRegistry, targetHost) {
+		if docker.SupportsRegistry(noRegistry, cfg.Destination) {
 			deployOpts.Registry = &docker.RegistryConfig{
 				Port:              resolvedPort,
 				UseControlSockets: docker.SupportsSSHControlSockets(goos),
