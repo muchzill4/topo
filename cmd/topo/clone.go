@@ -19,9 +19,6 @@ var topoCloneCmd = &cobra.Command{
 The project-source argument uses scheme prefixes to specify the source type.
 The git: prefix is optional for git@host and https:// URLs.
 
-Template Name (from built-in catalog):
-  topo clone template:topo-welcome
-
 Git repository:
   topo clone git@github.com:user/repo.git
   topo clone https://github.com/user/repo.git#develop
@@ -37,11 +34,11 @@ Local directory (must contain a Topo template):
 Some projects require build arguments. Supply them on the command line or answer prompts:
 
   # Will prompt for required args
-  topo clone template:topo-welcome
+  topo clone https://github.com/Arm-Examples/topo-welcome.git
   # Provide args explicitly
-  topo clone template:topo-welcome GREETING_NAME="World"
+  topo clone https://github.com/Arm-Examples/topo-welcome.git GREETING_NAME="World"
   # With an explicit path
-  topo clone template:topo-welcome my-demo GREETING_NAME="World"
+  topo clone https://github.com/Arm-Examples/topo-welcome.git my-demo GREETING_NAME="World"
 `,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
