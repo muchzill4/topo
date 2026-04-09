@@ -26,8 +26,10 @@ var setupKeysCmd = &cobra.Command{
 			return err
 		}
 
-		if err := ssh.CheckForLegacyTopoConfigEntries(); err != nil {
+		if exists, err := ssh.LegacyTopoConfigDirectoryExists(); err != nil {
 			return err
+		} else if exists {
+			return fmt.Errorf("legacy topo ssh config entries found; run 'topo migrate-ssh' to migrate to the new single-file format")
 		}
 
 		dest := ssh.NewDestination(targetArg)
@@ -59,12 +61,12 @@ var setupKeysCmd = &cobra.Command{
 			return err
 		}
 
-		directives := []ssh.ConfigDirective{
-			ssh.NewConfigDirectivePath("IdentityFile", privateKeyPath),
-			ssh.NewConfigDirective("IdentitiesOnly", "yes"),
+		modifiers := []ssh.ConfigDirectiveModifier{
+			ssh.NewEnsureConfigDirectivePath("IdentityFile", privateKeyPath),
+			ssh.NewEnsureConfigDirective("IdentitiesOnly", "yes"),
 		}
 
-		return ssh.CreateOrModifyConfigFile(dest, directives)
+		return ssh.CreateOrModifyConfigFile(dest, modifiers)
 	},
 }
 
