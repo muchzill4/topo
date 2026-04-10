@@ -33,18 +33,11 @@ func ProbeHealthStatus(ctx context.Context, r runner.Runner) HealthStatus {
 	hs.Hardware.RemoteCPU = remoteprocs
 
 	dependenciesToCheck := FilterByHardware(TargetRequiredDependencies, hs.Hardware.Capabilities())
-	binaryExists := func(bin string) error {
-		// We can use `UnsafeBinaryLookupCommand`, because the dependencies we're checking are hardcoded in the codebase
-		if _, err := r.Run(ctx, command.UnsafeBinaryLookupCommand(bin)); err != nil {
-			return err
-		}
-		return nil
-	}
 	commandSuccessful := func(fullCmd string) error {
 		_, err := r.Run(ctx, command.WrapInLoginShell(fullCmd))
 		return err
 	}
-	hs.Dependencies = PerformChecks(dependenciesToCheck, binaryExists, commandSuccessful)
+	hs.Dependencies = PerformChecks(ctx, dependenciesToCheck, r.BinaryExists, commandSuccessful)
 
 	return hs
 }

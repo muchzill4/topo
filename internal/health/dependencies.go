@@ -1,12 +1,6 @@
 package health
 
-import (
-	"fmt"
-	"os/exec"
-	"strings"
-
-	"github.com/arm/topo/internal/command"
-)
+import "context"
 
 type CheckKind int
 
@@ -155,11 +149,11 @@ func hardwareCapabilityMatches(required []HardwareCapability, available map[Hard
 }
 
 type (
-	BinaryExistsFn      = func(bin string) error
+	BinaryExistsFn      = func(ctx context.Context, bin string) error
 	CommandSuccessfulFn = func(fullCmd string) error
 )
 
-func PerformChecks(dependencies []Dependency, binaryExists BinaryExistsFn, commandSuccessful CommandSuccessfulFn) []DependencyStatus {
+func PerformChecks(ctx context.Context, dependencies []Dependency, binaryExists BinaryExistsFn, commandSuccessful CommandSuccessfulFn) []DependencyStatus {
 	installed := make(map[SoftwareDependency]struct{})
 	result := make([]DependencyStatus, 0, len(dependencies))
 
@@ -173,7 +167,7 @@ func PerformChecks(dependencies []Dependency, binaryExists BinaryExistsFn, comma
 		for _, check := range dep.Checks {
 			switch check.Kind {
 			case CheckBinaryExists:
-				err = binaryExists(dep.Binary)
+				err = binaryExists(ctx, dep.Binary)
 				if err == nil && dep.SoftwareEnumID != UnsetSoftwareDependency {
 					installed[dep.SoftwareEnumID] = struct{}{}
 				}
@@ -205,23 +199,4 @@ func hasAnyInstalledPrerequisite(required []SoftwareDependency, installed map[So
 		}
 	}
 	return false
-}
-
-func BinaryExistsLocally(bin string) error {
-	if err := command.ValidateBinaryName(bin); err != nil {
-		return err
-	}
-	if _, err := exec.LookPath(bin); err != nil {
-		return fmt.Errorf("%q executable file not found in $PATH", bin)
-	}
-	return nil
-}
-
-func CommandSuccessfulLocally(fullCmd string) error {
-	cmdParts := strings.Fields(fullCmd)
-	execCmd := exec.Command(cmdParts[0], cmdParts[1:]...)
-	if err := execCmd.Run(); err != nil {
-		return fmt.Errorf("failed to run `%s`: %w", fullCmd, err)
-	}
-	return nil
 }
