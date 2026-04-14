@@ -38,6 +38,12 @@ var setupKeysCmd = &cobra.Command{
 		}
 
 		dest := ssh.NewDestination(targetArg)
+		user, err := ssh.GetUserFromConfig(dest)
+		if err != nil {
+			return fmt.Errorf("%w; note: a per user SSH config entry should be created when setting up keys", err)
+		}
+
+		dest.User = user
 		targetSlug := dest.Slugify()
 		if privateKeyPath == "" {
 			privateKeyPath, err = setupkeys.GetDefaultPrivateKeyPath(sshDir, targetSlug)
@@ -49,11 +55,6 @@ var setupKeysCmd = &cobra.Command{
 		parsedKeyType, err := setupkeys.ParseKeyType(keyType)
 		if err != nil {
 			return err
-		}
-
-		err = ssh.IsDestinationAlreadyConfiguredWithAnotherUser(dest)
-		if err != nil {
-			return fmt.Errorf("%w; note: a per user SSH config entry should be created when setting up keys", err)
 		}
 
 		seq, err := setupkeys.NewKeySetup(dest, privateKeyPath, parsedKeyType)
@@ -69,6 +70,7 @@ var setupKeysCmd = &cobra.Command{
 		modifiers := []ssh.ConfigDirectiveModifier{
 			ssh.NewEnsureConfigDirectivePath("IdentityFile", privateKeyPath),
 			ssh.NewEnsureConfigDirective("IdentitiesOnly", "yes"),
+			ssh.NewEnsureConfigDirective("User", dest.User),
 		}
 
 		return ssh.CreateOrModifyConfigFile(sshDir, dest, modifiers)
