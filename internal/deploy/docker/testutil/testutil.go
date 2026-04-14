@@ -18,7 +18,8 @@ var (
 	RequireLinuxDockerEngine = gtestutil.RequireLinuxDockerEngine
 	RequireWriteFile         = gtestutil.RequireWriteFile
 	SanitiseTestName         = gtestutil.SanitiseTestName
-	StartTargetContainer     = gtestutil.StartTargetContainer
+	StartContainer           = gtestutil.StartContainer
+	DinDContainer            = gtestutil.DinDContainer
 )
 
 func TestImageName(t *testing.T) string {

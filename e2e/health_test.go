@@ -10,11 +10,11 @@ import (
 )
 
 func TestHealthCheck(t *testing.T) {
-	target := testutil.StartTargetContainer(t)
+	container := testutil.StartContainer(t, testutil.DinDContainer)
 	topo := buildBinary(t)
 
 	t.Run("accurately shows host health status", func(t *testing.T) {
-		out, err := runCheckHealth(topo, target)
+		out, err := runCheckHealth(topo, container)
 		require.NoError(t, err)
 
 		assert.Contains(t, out, "SSH: ✅ (ssh)")
@@ -22,16 +22,16 @@ func TestHealthCheck(t *testing.T) {
 	})
 
 	t.Run("shows that it's connected to a valid target", func(t *testing.T) {
-		out, err := runCheckHealth(topo, target)
+		out, err := runCheckHealth(topo, container)
 		require.NoError(t, err)
 
 		assert.Contains(t, out, "Connectivity: ✅")
 	})
 
 	t.Run("fails to connect to an invalid target", func(t *testing.T) {
-		fakeContainer := testutil.TargetContainer{
+		fakeContainer := testutil.Container{
 			SSHDestination: "fake@target",
-			ContainerName:  "fake-tgt-container",
+			Name:           "fake-tgt-container",
 		}
 		out, err := runCheckHealth(topo, &fakeContainer)
 		assert.NoError(t, err)
@@ -39,14 +39,14 @@ func TestHealthCheck(t *testing.T) {
 	})
 
 	t.Run("outputs JSON when specified", func(t *testing.T) {
-		out, err := runCheckHealth(topo, target, "--output", "json")
+		out, err := runCheckHealth(topo, container, "--output", "json")
 
 		assert.NoError(t, err)
 		testutil.AssertJsonGoldenFile(t, out, "testdata/TestHealthCheckJson.golden")
 	})
 }
 
-func runCheckHealth(topo string, target *testutil.TargetContainer, args ...string) (string, error) {
+func runCheckHealth(topo string, target *testutil.Container, args ...string) (string, error) {
 	args = append([]string{"health", "--target", target.SSHDestination}, args...)
 	healthCmd := exec.Command(topo, args...)
 
