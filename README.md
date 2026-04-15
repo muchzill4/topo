@@ -143,7 +143,7 @@ This creates a project directory containing a `compose.yaml`, and any source fil
 ### 5. Deploy to your target
 
 ```sh
-cd my-project/
+cd topo-welcome/
 topo deploy --target my-board
 ```
 
