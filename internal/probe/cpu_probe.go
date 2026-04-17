@@ -26,13 +26,7 @@ func CPU(ctx context.Context, r runner.Runner) ([]HostProcessor, error) {
 		return nil, err
 	}
 
-	var lscpuOutput lscpuOutput
-	err = json.Unmarshal([]byte(out), &lscpuOutput)
-	if err != nil {
-		return nil, err
-	}
-
-	return CreateCPUProfile(lscpuOutput.Lscpu)
+	return newHostProcessor([]byte(out))
 }
 
 var armCpuFeatures = map[string]string{
@@ -43,14 +37,14 @@ var armCpuFeatures = map[string]string{
 	"sme2":  "SME2",
 }
 
-type LscpuOutputField struct {
+type lscpuOutputField struct {
 	Field    string             `json:"field"`
 	Data     string             `json:"data"`
-	Children []LscpuOutputField `json:"children,omitempty"`
+	Children []lscpuOutputField `json:"children,omitempty"`
 }
 
-type lscpuOutput struct {
-	Lscpu []LscpuOutputField `json:"lscpu"`
+type lscpuJSON struct {
+	Lscpu []lscpuOutputField `json:"lscpu"`
 }
 
 func (proc *HostProcessor) ExtractArmFeatures() []string {
@@ -67,7 +61,7 @@ func (proc *HostProcessor) ExtractArmFeatures() []string {
 	return res
 }
 
-func newHostProcessor(name string, fields []LscpuOutputField) (HostProcessor, error) {
+func parseHostProcessor(name string, fields []lscpuOutputField) (HostProcessor, error) {
 	coresPerUnit := 1
 	units := 1
 	foundUnits := false
@@ -105,14 +99,19 @@ func newHostProcessor(name string, fields []LscpuOutputField) (HostProcessor, er
 	}, nil
 }
 
-func CreateCPUProfile(fields []LscpuOutputField) ([]HostProcessor, error) {
+func newHostProcessor(lscpuOutput []byte) ([]HostProcessor, error) {
+	var output lscpuJSON
+	if err := json.Unmarshal(lscpuOutput, &output); err != nil {
+		return nil, err
+	}
+
 	type coreType struct {
 		name   string
-		fields []LscpuOutputField
+		fields []lscpuOutputField
 	}
 	var coreTypes []coreType
 
-	for _, f := range fields {
+	for _, f := range output.Lscpu {
 		if f.Field == "Model name:" {
 			coreTypes = append(coreTypes, coreType{name: f.Data})
 			continue
@@ -124,7 +123,7 @@ func CreateCPUProfile(fields []LscpuOutputField) ([]HostProcessor, error) {
 
 	var profiles []HostProcessor
 	for _, g := range coreTypes {
-		hp, err := newHostProcessor(g.name, g.fields)
+		hp, err := parseHostProcessor(g.name, g.fields)
 		if err != nil {
 			return nil, err
 		}
