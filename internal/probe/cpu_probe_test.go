@@ -152,25 +152,27 @@ func TestProbeCPU(t *testing.T) {
 	})
 }
 
-func TestExtractArmFeatures(t *testing.T) {
-	t.Run("extracts mapped Arm features and ignores unrecognised", func(t *testing.T) {
-		ts := probe.HostProcessor{
-			Features: []string{"fp", "asimd", "sve2", "sme"},
-		}
+func TestHostProcessor(t *testing.T) {
+	t.Run("ExtractArmFeatures", func(t *testing.T) {
+		t.Run("extracts mapped Arm features and ignores unrecognised", func(t *testing.T) {
+			ts := probe.HostProcessor{
+				Features: []string{"fp", "asimd", "sve2", "sme"},
+			}
 
-		res := ts.ExtractArmFeatures()
+			res := ts.ExtractArmFeatures()
 
-		want := []string{"NEON", "SVE2", "SME"}
-		assert.Equal(t, want, res)
-	})
+			want := []string{"NEON", "SVE2", "SME"}
+			assert.Equal(t, want, res)
+		})
 
-	t.Run("returns empty slice if no matching features", func(t *testing.T) {
-		ts := probe.HostProcessor{
-			Features: []string{"fp", "crc32"},
-		}
+		t.Run("returns empty slice if no matching features", func(t *testing.T) {
+			ts := probe.HostProcessor{
+				Features: []string{"fp", "crc32"},
+			}
 
-		res := ts.ExtractArmFeatures()
+			res := ts.ExtractArmFeatures()
 
-		assert.Empty(t, res)
+			assert.Empty(t, res)
+		})
 	})
 }
