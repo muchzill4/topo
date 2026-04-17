@@ -1,4 +1,4 @@
-package target
+package probe
 
 import (
 	"bufio"
@@ -10,7 +10,7 @@ import (
 	"github.com/arm/topo/internal/runner"
 )
 
-func ProbeMemory(ctx context.Context, r runner.Runner) (int64, error) {
+func Memory(ctx context.Context, r runner.Runner) (int64, error) {
 	key := "MemTotal"
 	path := "/proc/meminfo"
 
