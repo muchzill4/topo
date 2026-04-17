@@ -12,9 +12,9 @@ import (
 )
 
 type HostProcessor struct {
-	Model    string   `yaml:"model"`
-	Cores    int      `yaml:"cores"`
-	Features []string `yaml:"features"`
+	Model    string   `yaml:"model" json:"model"`
+	Cores    int      `yaml:"cores" json:"cores"`
+	Features []string `yaml:"features" json:"features"`
 }
 
 func ProbeCPU(ctx context.Context, r runner.Runner) ([]HostProcessor, error) {

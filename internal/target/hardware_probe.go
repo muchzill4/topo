@@ -8,9 +8,9 @@ import (
 )
 
 type HardwareProfile struct {
-	HostProcessor []HostProcessor `yaml:"host"`
-	RemoteCPU     []RemoteprocCPU `yaml:"remoteprocs"`
-	TotalMemoryKb int64           `yaml:"totalmemory_kb"`
+	HostProcessor []HostProcessor `yaml:"host" json:"host"`
+	RemoteCPU     []RemoteprocCPU `yaml:"remoteprocs" json:"remoteprocs,omitempty"`
+	TotalMemoryKb int64           `yaml:"totalmemory_kb" json:"totalmemory_kb"`
 }
 
 func ProbeHardware(ctx context.Context, r runner.Runner) (HardwareProfile, error) {

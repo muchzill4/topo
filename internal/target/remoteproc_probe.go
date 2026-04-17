@@ -9,7 +9,7 @@ import (
 )
 
 type RemoteprocCPU struct {
-	Name string `yaml:"name"`
+	Name string `yaml:"name" json:"name"`
 }
 
 func ProbeRemoteproc(ctx context.Context, r runner.Runner) ([]RemoteprocCPU, error) {
