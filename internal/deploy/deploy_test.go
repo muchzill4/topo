@@ -22,7 +22,7 @@ func TestNewDeployment(t *testing.T) {
 
 	t.Run("includes transfer operation for remote host", func(t *testing.T) {
 		remoteDest := ssh.NewDestination("user@remote")
-		deployOpts := deploy.DeployOptions{TargetHost: remoteDest}
+		deployOpts := deploy.DeployOptions{TargetHost: remoteDest, SourceEngine: e, TargetEngine: e}
 
 		got, _ := deploy.NewDeployment(composeFile, deployOpts)
 
@@ -40,7 +40,7 @@ func TestNewDeployment(t *testing.T) {
 	t.Run("includes registry operations for remote host when enabled", func(t *testing.T) {
 		remoteDest := ssh.NewDestination("user@remote")
 		port := operation.DefaultRegistryPort
-		opts := deploy.DeployOptions{TargetHost: remoteDest, Registry: &deploy.RegistryConfig{Port: port, UseControlSockets: true}}
+		opts := deploy.DeployOptions{TargetHost: remoteDest, Registry: &deploy.RegistryConfig{Port: port, UseControlSockets: true}, SourceEngine: e, TargetEngine: e}
 
 		got, _ := deploy.NewDeployment(composeFile, opts)
 
@@ -62,7 +62,7 @@ func TestNewDeployment(t *testing.T) {
 		assert.Equal(t, want, got)
 	})
 
-	t.Run("excludes transfer operation for local host", func(t *testing.T) {
+	t.Run("excludes transfer operation for local host with same engine", func(t *testing.T) {
 		tests := []struct {
 			name         string
 			recreateMode operation.RecreateMode
@@ -85,6 +85,8 @@ func TestNewDeployment(t *testing.T) {
 				deployOpts := deploy.DeployOptions{
 					TargetHost:   ssh.PlainLocalhost,
 					RecreateMode: tt.recreateMode,
+					SourceEngine: e,
+					TargetEngine: e,
 				}
 
 				got, _ := deploy.NewDeployment(composeFile, deployOpts)
@@ -100,9 +102,28 @@ func TestNewDeployment(t *testing.T) {
 		}
 	})
 
+	t.Run("includes transfer for local host with different engines", func(t *testing.T) {
+		deployOpts := deploy.DeployOptions{
+			TargetHost:   ssh.PlainLocalhost,
+			SourceEngine: engine.Docker,
+			TargetEngine: engine.Podman,
+		}
+
+		got, _ := deploy.NewDeployment(composeFile, deployOpts)
+
+		localHost := engine.LocalHost
+		want := goperation.Sequence{
+			operation.NewComposeBuild(engine.Docker, composeFile, localHost),
+			operation.NewComposePull(engine.Docker, composeFile, localHost),
+			operation.NewComposePipeTransfer(engine.Docker, engine.Podman, composeFile, localHost, localHost),
+			operation.NewComposeUp(engine.Podman, composeFile, localHost, operation.RecreateModeDefault),
+		}
+		assert.Equal(t, want, got)
+	})
+
 	t.Run("returns an SSH tunnel cleanup operation for remote host", func(t *testing.T) {
 		remoteHost := ssh.NewDestination("user@remote")
-		deployOpts := deploy.DeployOptions{TargetHost: remoteHost, Registry: &deploy.RegistryConfig{UseControlSockets: true}}
+		deployOpts := deploy.DeployOptions{TargetHost: remoteHost, Registry: &deploy.RegistryConfig{UseControlSockets: true}, SourceEngine: e, TargetEngine: e}
 
 		_, cleanup := deploy.NewDeployment(composeFile, deployOpts)
 
@@ -112,7 +133,7 @@ func TestNewDeployment(t *testing.T) {
 
 	t.Run("does not return an SSH tunnel cleanup operation for local host", func(t *testing.T) {
 		localHost := ssh.PlainLocalhost
-		deployOpts := deploy.DeployOptions{TargetHost: localHost, Registry: &deploy.RegistryConfig{}}
+		deployOpts := deploy.DeployOptions{TargetHost: localHost, Registry: &deploy.RegistryConfig{}, SourceEngine: e, TargetEngine: e}
 
 		_, cleanup := deploy.NewDeployment(composeFile, deployOpts)
 
@@ -123,7 +144,7 @@ func TestNewDeployment(t *testing.T) {
 	t.Run("does not use SSH control sockets when disabled", func(t *testing.T) {
 		remoteDest := ssh.NewDestination("user@remote")
 		port := operation.DefaultRegistryPort
-		opts := deploy.DeployOptions{TargetHost: remoteDest, Registry: &deploy.RegistryConfig{Port: port, UseControlSockets: false}}
+		opts := deploy.DeployOptions{TargetHost: remoteDest, Registry: &deploy.RegistryConfig{Port: port, UseControlSockets: false}, SourceEngine: e, TargetEngine: e}
 
 		got, _ := deploy.NewDeployment(composeFile, opts)
 
@@ -175,7 +196,7 @@ services:
 			testutil.RequireWriteFile(t, composeFilePath, composeFileContent)
 			t.Cleanup(func() { testutil.ForceComposeDown(t, e, composeFilePath) })
 
-			deployOpts := deploy.DeployOptions{TargetHost: remoteDockerHost}
+			deployOpts := deploy.DeployOptions{TargetHost: remoteDockerHost, SourceEngine: e, TargetEngine: e}
 			d, _ := deploy.NewDeployment(composeFilePath, deployOpts)
 			err := d.Run(os.Stdout)
 
