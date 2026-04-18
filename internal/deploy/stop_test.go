@@ -24,7 +24,7 @@ func TestNewDeploymentStop(t *testing.T) {
 		remoteDest := ssh.NewDestination("user@remote")
 		remoteHost := engine.NewHostFromDestination(remoteDest)
 
-		got := deploy.NewDeploymentStop(composeFile, remoteDest)
+		got := deploy.NewDeploymentStop(e, composeFile, remoteDest)
 
 		want := goperation.Sequence{
 			operation.NewComposeStop(e, composeFile, remoteHost),
@@ -33,7 +33,7 @@ func TestNewDeploymentStop(t *testing.T) {
 	})
 
 	t.Run("runs stop operation for local host", func(t *testing.T) {
-		got := deploy.NewDeploymentStop(composeFile, ssh.PlainLocalhost)
+		got := deploy.NewDeploymentStop(e, composeFile, ssh.PlainLocalhost)
 
 		want := goperation.Sequence{
 			operation.NewComposeStop(e, composeFile, engine.LocalHost),
@@ -71,13 +71,13 @@ services:
 			testutil.RequireWriteFile(t, composeFilePath, composeFileContent)
 			t.Cleanup(func() { testutil.ForceComposeDown(t, e, composeFilePath) })
 
-			deployOpts := deploy.DeployOptions{TargetHost: remoteDockerHost}
+			deployOpts := deploy.DeployOptions{TargetHost: remoteDockerHost, SourceEngine: e, TargetEngine: e}
 			deployment, _ := deploy.NewDeployment(composeFilePath, deployOpts)
 
 			require.NoError(t, deployment.Run(os.Stdout))
 			testutil.AssertContainersRunning(t, e, remoteDockerHost, composeFilePath)
 
-			stop := deploy.NewDeploymentStop(composeFilePath, remoteDockerHost)
+			stop := deploy.NewDeploymentStop(e, composeFilePath, remoteDockerHost)
 			err := stop.Run(os.Stdout)
 
 			require.NoError(t, err)

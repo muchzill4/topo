@@ -4,10 +4,13 @@ import (
 	"os"
 
 	"github.com/arm/topo/internal/deploy"
+	"github.com/arm/topo/internal/deploy/engine"
 	"github.com/arm/topo/internal/ssh"
 
 	"github.com/spf13/cobra"
 )
+
+var stopEngineFlag string
 
 var topoStopCmd = &cobra.Command{
 	Use:   "stop",
@@ -31,9 +34,14 @@ The compose file (compose.yaml) must be in the current working directory, as thi
 			return err
 		}
 
+		engine, err := engine.ParseEngine(stopEngineFlag)
+		if err != nil {
+			return err
+		}
+
 		dest := ssh.NewDestination(targetArg)
 
-		stop := deploy.NewDeploymentStop(composeFile, dest)
+		stop := deploy.NewDeploymentStop(engine, composeFile, dest)
 
 		return stop.Run(os.Stdout)
 	},
@@ -41,5 +49,6 @@ The compose file (compose.yaml) must be in the current working directory, as thi
 
 func init() {
 	addTargetFlag(topoStopCmd)
+	topoStopCmd.Flags().StringVar(&stopEngineFlag, "engine", "docker", "Container engine on the target (docker, podman, nerdctl, finch)")
 	rootCmd.AddCommand(topoStopCmd)
 }
