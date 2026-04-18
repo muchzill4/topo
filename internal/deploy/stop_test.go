@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/arm/topo/internal/deploy"
-	"github.com/arm/topo/internal/deploy/command"
+	"github.com/arm/topo/internal/deploy/engine"
 	"github.com/arm/topo/internal/deploy/operation"
 	"github.com/arm/topo/internal/deploy/testutil"
 	goperation "github.com/arm/topo/internal/operation"
@@ -18,15 +18,16 @@ import (
 
 func TestNewDeploymentStop(t *testing.T) {
 	composeFile := "compose.yaml"
+	e := engine.Docker
 
 	t.Run("runs stop operation for remote host", func(t *testing.T) {
 		remoteDest := ssh.NewDestination("user@remote")
-		remoteHost := command.NewHostFromDestination(remoteDest)
+		remoteHost := engine.NewHostFromDestination(remoteDest)
 
 		got := deploy.NewDeploymentStop(composeFile, remoteDest)
 
 		want := goperation.Sequence{
-			operation.NewDockerComposeStop(composeFile, remoteHost),
+			operation.NewComposeStop(e, composeFile, remoteHost),
 		}
 		assert.Equal(t, want, got)
 	})
@@ -35,7 +36,7 @@ func TestNewDeploymentStop(t *testing.T) {
 		got := deploy.NewDeploymentStop(composeFile, ssh.PlainLocalhost)
 
 		want := goperation.Sequence{
-			operation.NewDockerComposeStop(composeFile, command.LocalHost),
+			operation.NewComposeStop(e, composeFile, engine.LocalHost),
 		}
 		assert.Equal(t, want, got)
 	})
@@ -48,6 +49,7 @@ func TestDeploymentStop(t *testing.T) {
 		container := testutil.StartContainer(t, testutil.DinDContainer)
 
 		t.Run("deploys services then confirms stop shuts down containers", func(t *testing.T) {
+			e := engine.Docker
 			remoteDockerHost := ssh.NewDestination(container.SSHDestination)
 			tmpDir := t.TempDir()
 			dockerFilePath := filepath.Join(tmpDir, "Dockerfile")
@@ -67,19 +69,19 @@ services:
     build: .
 `, testutil.TestProjectName(t))
 			testutil.RequireWriteFile(t, composeFilePath, composeFileContent)
-			t.Cleanup(func() { testutil.ForceComposeDown(t, composeFilePath) })
+			t.Cleanup(func() { testutil.ForceComposeDown(t, e, composeFilePath) })
 
 			deployOpts := deploy.DeployOptions{TargetHost: remoteDockerHost}
 			deployment, _ := deploy.NewDeployment(composeFilePath, deployOpts)
 
 			require.NoError(t, deployment.Run(os.Stdout))
-			testutil.AssertContainersRunning(t, remoteDockerHost, composeFilePath)
+			testutil.AssertContainersRunning(t, e, remoteDockerHost, composeFilePath)
 
 			stop := deploy.NewDeploymentStop(composeFilePath, remoteDockerHost)
 			err := stop.Run(os.Stdout)
 
 			require.NoError(t, err)
-			testutil.AssertContainersStopped(t, remoteDockerHost, composeFilePath)
+			testutil.AssertContainersStopped(t, e, remoteDockerHost, composeFilePath)
 		})
 	})
 }

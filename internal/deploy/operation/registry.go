@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/arm/topo/internal/deploy/command"
+	"github.com/arm/topo/internal/deploy/engine"
 	"github.com/arm/topo/internal/operation"
 )
 
@@ -16,14 +16,14 @@ const (
 	registryImage         = "registry:2"
 )
 
-func NewRunRegistry(port string) operation.Sequence {
-	localHost := command.LocalHost
+func NewRunRegistry(e engine.Engine, port string) operation.Sequence {
+	localHost := engine.LocalHost
 	return operation.NewSequence(
-		NewDockerPull(localHost, registryImage),
+		NewPull(e, localHost, registryImage),
 		operation.NewConditional(
-			NewContainerExistsPredicate(localHost, RegistryContainerName),
-			NewDockerStart(localHost, RegistryContainerName),
-			NewRegistryRunWrapper(NewDockerRun(localHost, registryImage, RegistryContainerName,
+			NewContainerExistsPredicate(e, localHost, RegistryContainerName),
+			NewStart(e, localHost, RegistryContainerName),
+			NewRegistryRunWrapper(NewContainerRun(e, localHost, registryImage, RegistryContainerName,
 				[]string{
 					"-d",
 					"--restart", "always",
@@ -35,17 +35,17 @@ func NewRunRegistry(port string) operation.Sequence {
 }
 
 type RegistryRunWrapper struct {
-	*Docker
+	*ContainerRun
 }
 
-func NewRegistryRunWrapper(d *Docker) *RegistryRunWrapper {
-	return &RegistryRunWrapper{Docker: d}
+func NewRegistryRunWrapper(r *ContainerRun) *RegistryRunWrapper {
+	return &RegistryRunWrapper{ContainerRun: r}
 }
 
 func (r *RegistryRunWrapper) Run(w io.Writer) error {
 	var buf bytes.Buffer
 	combined := io.MultiWriter(w, &buf)
-	if err := r.Docker.Run(combined); err != nil {
+	if err := r.ContainerRun.Run(combined); err != nil {
 		if strings.Contains(buf.String(), "already in use") || strings.Contains(buf.String(), "already allocated") {
 			return fmt.Errorf("%w\nport is already in use, this could be an existing %s or another process", err, RegistryContainerName)
 		}
@@ -55,16 +55,17 @@ func (r *RegistryRunWrapper) Run(w io.Writer) error {
 }
 
 type ContainerExistsPredicate struct {
-	host          command.Host
+	engine        engine.Engine
+	host          engine.Host
 	containerName string
 }
 
-func NewContainerExistsPredicate(host command.Host, containerName string) *ContainerExistsPredicate {
-	return &ContainerExistsPredicate{host: host, containerName: containerName}
+func NewContainerExistsPredicate(e engine.Engine, host engine.Host, containerName string) *ContainerExistsPredicate {
+	return &ContainerExistsPredicate{engine: e, host: host, containerName: containerName}
 }
 
 func (p *ContainerExistsPredicate) Eval() bool {
-	cmd := command.Docker(p.host, "inspect", p.containerName)
+	cmd := engine.Cmd(p.engine, p.host, "inspect", p.containerName)
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	return cmd.Run() == nil

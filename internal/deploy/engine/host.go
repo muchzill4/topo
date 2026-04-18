@@ -1,4 +1,4 @@
-package command
+package engine
 
 import "github.com/arm/topo/internal/ssh"
 
