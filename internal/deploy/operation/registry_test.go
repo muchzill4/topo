@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/arm/topo/internal/deploy/command"
+	"github.com/arm/topo/internal/deploy/engine"
 	"github.com/arm/topo/internal/deploy/operation"
 	"github.com/arm/topo/internal/deploy/testutil"
 	goperation "github.com/arm/topo/internal/operation"
@@ -16,16 +16,17 @@ import (
 func TestNewRunRegistry(t *testing.T) {
 	t.Run("returns expected sequence", func(t *testing.T) {
 		port := operation.DefaultRegistryPort
+		e := engine.Docker
 
-		got := operation.NewRunRegistry(port)
+		got := operation.NewRunRegistry(e, port)
 
-		localHost := command.LocalHost
+		localHost := engine.LocalHost
 		want := goperation.NewSequence(
-			operation.NewDockerPull(localHost, "registry:2"),
+			operation.NewPull(e, localHost, "registry:2"),
 			goperation.NewConditional(
-				operation.NewContainerExistsPredicate(localHost, operation.RegistryContainerName),
-				operation.NewDockerStart(localHost, operation.RegistryContainerName),
-				operation.NewRegistryRunWrapper(operation.NewDockerRun(localHost, "registry:2", operation.RegistryContainerName,
+				operation.NewContainerExistsPredicate(e, localHost, operation.RegistryContainerName),
+				operation.NewStart(e, localHost, operation.RegistryContainerName),
+				operation.NewRegistryRunWrapper(operation.NewContainerRun(e, localHost, "registry:2", operation.RegistryContainerName,
 					[]string{
 						"-d",
 						"--restart", "always",
@@ -43,16 +44,17 @@ func TestContainerExistsPredicate(t *testing.T) {
 		testutil.RequireLinuxDockerEngine(t)
 		containerName := testutil.TestContainerName(t)
 		imageName := testutil.TestImageName(t)
-		localHost := command.LocalHost
-		testutil.BuildMinimalImage(t, localHost, imageName)
-		runCmd := command.Docker(localHost, "run", "-d", "--name", containerName, imageName)
+		localHost := engine.LocalHost
+		e := engine.Docker
+		testutil.BuildMinimalImage(t, e, localHost, imageName)
+		runCmd := engine.Cmd(e, localHost, "run", "-d", "--name", containerName, imageName)
 		require.NoError(t, runCmd.Run())
 		t.Cleanup(func() {
-			stopCmd := command.Docker(localHost, "rm", "-f", containerName)
+			stopCmd := engine.Cmd(e, localHost, "rm", "-f", containerName)
 			_ = stopCmd.Run()
 		})
 
-		predicate := operation.NewContainerExistsPredicate(command.LocalHost, containerName)
+		predicate := operation.NewContainerExistsPredicate(e, engine.LocalHost, containerName)
 		got := predicate.Eval()
 
 		assert.True(t, got)
@@ -62,7 +64,7 @@ func TestContainerExistsPredicate(t *testing.T) {
 		testutil.RequireDocker(t)
 		containerName := "non-existent-container-12345"
 
-		predicate := operation.NewContainerExistsPredicate(command.LocalHost, containerName)
+		predicate := operation.NewContainerExistsPredicate(engine.Docker, engine.LocalHost, containerName)
 		got := predicate.Eval()
 
 		assert.False(t, got)

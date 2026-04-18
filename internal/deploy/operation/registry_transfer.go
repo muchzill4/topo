@@ -10,20 +10,29 @@ import (
 	"strings"
 
 	"github.com/arm/topo/internal/compose"
-	"github.com/arm/topo/internal/deploy/command"
+	"github.com/arm/topo/internal/deploy/engine"
 )
 
 var digestRegexp = regexp.MustCompile(`digest: (sha256:[a-f0-9]+)`)
 
 type RegistryTransfer struct {
-	composeFile string
-	source      command.Host
-	host        command.Host
-	port        string
+	sourceEngine engine.Engine
+	targetEngine engine.Engine
+	composeFile  string
+	source       engine.Host
+	target       engine.Host
+	port         string
 }
 
-func NewRegistryTransfer(composeFile string, sourceHost, dest command.Host, port string) *RegistryTransfer {
-	return &RegistryTransfer{composeFile: composeFile, source: sourceHost, host: dest, port: port}
+func NewRegistryTransfer(sourceEngine, targetEngine engine.Engine, composeFile string, sourceHost, targetHost engine.Host, port string) *RegistryTransfer {
+	return &RegistryTransfer{
+		sourceEngine: sourceEngine,
+		targetEngine: targetEngine,
+		composeFile:  composeFile,
+		source:       sourceHost,
+		target:       targetHost,
+		port:         port,
+	}
 }
 
 func (r *RegistryTransfer) Description() string {
@@ -55,12 +64,12 @@ func (r *RegistryTransfer) getImagesFromCompose() ([]string, error) {
 func (r *RegistryTransfer) transferImage(w io.Writer, image string) error {
 	tag := fmt.Sprintf("localhost:%s/%s", r.port, image)
 
-	tagCmd := command.Docker(r.source, "tag", image, tag)
+	tagCmd := engine.Cmd(r.sourceEngine, r.source, "tag", image, tag)
 	if err := runCmd(tagCmd, w); err != nil {
 		return err
 	}
 
-	pushCmd := command.Docker(r.source, "push", tag)
+	pushCmd := engine.Cmd(r.sourceEngine, r.source, "push", tag)
 	pushOutput, err := runCmdCaptureOutput(pushCmd, w)
 	if err != nil {
 		if hint := r.checkRegistryPortMismatch(); hint != "" {
@@ -75,12 +84,12 @@ func (r *RegistryTransfer) transferImage(w io.Writer, image string) error {
 	}
 
 	digestRef := fmt.Sprintf("localhost:%s/%s@%s", r.port, image, digest)
-	pullCmd := command.Docker(r.host, "pull", digestRef)
+	pullCmd := engine.Cmd(r.targetEngine, r.target, "pull", digestRef)
 	if err := runCmd(pullCmd, w); err != nil {
 		return err
 	}
 
-	retagCmd := command.Docker(r.host, "tag", digestRef, image)
+	retagCmd := engine.Cmd(r.targetEngine, r.target, "tag", digestRef, image)
 	if err := runCmd(retagCmd, w); err != nil {
 		return err
 	}
@@ -114,7 +123,7 @@ func ParseDigestFromPushOutput(output string) (string, error) {
 }
 
 func (r *RegistryTransfer) checkRegistryPortMismatch() string {
-	cmd := command.Docker(command.LocalHost, "port", RegistryContainerName, "5000")
+	cmd := engine.Cmd(r.sourceEngine, engine.LocalHost, "port", RegistryContainerName, "5000")
 	out, err := cmd.Output()
 	if err != nil {
 		return ""

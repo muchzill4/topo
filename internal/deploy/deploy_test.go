@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/arm/topo/internal/deploy"
-	"github.com/arm/topo/internal/deploy/command"
+	"github.com/arm/topo/internal/deploy/engine"
 	"github.com/arm/topo/internal/deploy/operation"
 	"github.com/arm/topo/internal/deploy/testutil"
 	goperation "github.com/arm/topo/internal/operation"
@@ -18,6 +18,7 @@ import (
 
 func TestNewDeployment(t *testing.T) {
 	composeFile := "compose.yaml"
+	e := engine.Docker
 
 	t.Run("includes transfer operation for remote host", func(t *testing.T) {
 		remoteDest := ssh.NewDestination("user@remote")
@@ -25,13 +26,13 @@ func TestNewDeployment(t *testing.T) {
 
 		got, _ := deploy.NewDeployment(composeFile, deployOpts)
 
-		remoteHost := command.NewHostFromDestination(remoteDest)
-		localHost := command.LocalHost
+		remoteHost := engine.NewHostFromDestination(remoteDest)
+		localHost := engine.LocalHost
 		want := goperation.Sequence{
-			operation.NewDockerComposeBuild(composeFile, localHost),
-			operation.NewDockerComposePull(composeFile, localHost),
-			operation.NewDockerComposePipeTransfer(composeFile, localHost, remoteHost),
-			operation.NewDockerComposeUp(composeFile, remoteHost, operation.RecreateModeDefault),
+			operation.NewComposeBuild(e, composeFile, localHost),
+			operation.NewComposePull(e, composeFile, localHost),
+			operation.NewComposePipeTransfer(e, e, composeFile, localHost, remoteHost),
+			operation.NewComposeUp(e, composeFile, remoteHost, operation.RecreateModeDefault),
 		}
 		assert.Equal(t, want, got)
 	})
@@ -43,20 +44,20 @@ func TestNewDeployment(t *testing.T) {
 
 		got, _ := deploy.NewDeployment(composeFile, opts)
 
-		remoteHost := command.NewHostFromDestination(remoteDest)
-		localHost := command.LocalHost
+		remoteHost := engine.NewHostFromDestination(remoteDest)
+		localHost := engine.LocalHost
 		want := goperation.Sequence{
-			operation.NewDockerComposeBuild(composeFile, localHost),
-			operation.NewDockerComposePull(composeFile, localHost),
+			operation.NewComposeBuild(e, composeFile, localHost),
+			operation.NewComposePull(e, composeFile, localHost),
 		}
-		want = append(want, operation.NewRunRegistry(port)...)
+		want = append(want, operation.NewRunRegistry(e, port)...)
 		wantTunnelStart, wantSecurityCheck, wantTunnelStop := ssh.NewSSHTunnel(remoteDest, port, opts.Registry.UseControlSockets)
 		want = append(want,
 			wantTunnelStart,
 			wantSecurityCheck,
-			operation.NewRegistryTransfer(composeFile, localHost, remoteHost, port),
+			operation.NewRegistryTransfer(e, e, composeFile, localHost, remoteHost, port),
 			wantTunnelStop,
-			operation.NewDockerComposeUp(composeFile, remoteHost, operation.RecreateModeDefault),
+			operation.NewComposeUp(e, composeFile, remoteHost, operation.RecreateModeDefault),
 		)
 		assert.Equal(t, want, got)
 	})
@@ -88,11 +89,11 @@ func TestNewDeployment(t *testing.T) {
 
 				got, _ := deploy.NewDeployment(composeFile, deployOpts)
 
-				localHost := command.LocalHost
+				localHost := engine.LocalHost
 				want := goperation.Sequence{
-					operation.NewDockerComposeBuild(composeFile, localHost),
-					operation.NewDockerComposePull(composeFile, localHost),
-					operation.NewDockerComposeUp(composeFile, localHost, tt.recreateMode),
+					operation.NewComposeBuild(e, composeFile, localHost),
+					operation.NewComposePull(e, composeFile, localHost),
+					operation.NewComposeUp(e, composeFile, localHost, tt.recreateMode),
 				}
 				assert.Equal(t, want, got)
 			})
@@ -127,19 +128,19 @@ func TestNewDeployment(t *testing.T) {
 		got, _ := deploy.NewDeployment(composeFile, opts)
 
 		wantTunnelStart, wantSecurityCheck, wantTunnelEnd := ssh.NewSSHTunnel(remoteDest, opts.Registry.Port, opts.Registry.UseControlSockets)
-		localHost := command.LocalHost
-		remoteHost := command.NewHostFromDestination(remoteDest)
+		localHost := engine.LocalHost
+		remoteHost := engine.NewHostFromDestination(remoteDest)
 		want := goperation.Sequence{
-			operation.NewDockerComposeBuild(composeFile, localHost),
-			operation.NewDockerComposePull(composeFile, localHost),
+			operation.NewComposeBuild(e, composeFile, localHost),
+			operation.NewComposePull(e, composeFile, localHost),
 		}
-		want = append(want, operation.NewRunRegistry(port)...)
+		want = append(want, operation.NewRunRegistry(e, port)...)
 		want = append(want,
 			wantTunnelStart,
 			wantSecurityCheck,
-			operation.NewRegistryTransfer(composeFile, localHost, remoteHost, port),
+			operation.NewRegistryTransfer(e, e, composeFile, localHost, remoteHost, port),
 			wantTunnelEnd,
-			operation.NewDockerComposeUp(composeFile, remoteHost, operation.RecreateModeDefault),
+			operation.NewComposeUp(e, composeFile, remoteHost, operation.RecreateModeDefault),
 		)
 		assert.Equal(t, want, got)
 	})
@@ -152,6 +153,7 @@ func TestDeployment(t *testing.T) {
 		container := testutil.StartContainer(t, testutil.DinDContainer)
 
 		t.Run("builds images, transfers them, and starts services", func(t *testing.T) {
+			e := engine.Docker
 			remoteDockerHost := ssh.NewDestination(container.SSHDestination)
 			tmpDir := t.TempDir()
 			dockerFilePath := filepath.Join(tmpDir, "Dockerfile")
@@ -171,14 +173,14 @@ services:
     build: .
 `, testutil.TestProjectName(t))
 			testutil.RequireWriteFile(t, composeFilePath, composeFileContent)
-			t.Cleanup(func() { testutil.ForceComposeDown(t, composeFilePath) })
+			t.Cleanup(func() { testutil.ForceComposeDown(t, e, composeFilePath) })
 
 			deployOpts := deploy.DeployOptions{TargetHost: remoteDockerHost}
 			d, _ := deploy.NewDeployment(composeFilePath, deployOpts)
 			err := d.Run(os.Stdout)
 
 			require.NoError(t, err)
-			testutil.AssertContainersRunning(t, remoteDockerHost, composeFilePath)
+			testutil.AssertContainersRunning(t, e, remoteDockerHost, composeFilePath)
 		})
 	})
 }

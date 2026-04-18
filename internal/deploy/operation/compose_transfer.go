@@ -7,29 +7,33 @@ import (
 	"os/exec"
 
 	"github.com/arm/topo/internal/compose"
-	"github.com/arm/topo/internal/deploy/command"
+	"github.com/arm/topo/internal/deploy/engine"
 	"golang.org/x/sync/errgroup"
 )
 
-type DockerComposePipeTransfer struct {
-	composeFile string
-	source      command.Host
-	dest        command.Host
+type ComposePipeTransfer struct {
+	sourceEngine engine.Engine
+	targetEngine engine.Engine
+	composeFile  string
+	source       engine.Host
+	dest         engine.Host
 }
 
-func NewDockerComposePipeTransfer(composeFile string, source, dest command.Host) *DockerComposePipeTransfer {
-	return &DockerComposePipeTransfer{
-		composeFile: composeFile,
-		source:      source,
-		dest:        dest,
+func NewComposePipeTransfer(sourceEngine, targetEngine engine.Engine, composeFile string, source, dest engine.Host) *ComposePipeTransfer {
+	return &ComposePipeTransfer{
+		sourceEngine: sourceEngine,
+		targetEngine: targetEngine,
+		composeFile:  composeFile,
+		source:       source,
+		dest:         dest,
 	}
 }
 
-func (t *DockerComposePipeTransfer) Description() string {
+func (t *ComposePipeTransfer) Description() string {
 	return "Transfer images"
 }
 
-func (t *DockerComposePipeTransfer) Run(cmdOutput io.Writer) error {
+func (t *ComposePipeTransfer) Run(cmdOutput io.Writer) error {
 	images, err := t.getImagesFromCompose()
 	if err != nil {
 		return err
@@ -43,13 +47,13 @@ func (t *DockerComposePipeTransfer) Run(cmdOutput io.Writer) error {
 	return g.Wait()
 }
 
-func (t *DockerComposePipeTransfer) buildTransferCommands(imageName string) (*exec.Cmd, *exec.Cmd) {
-	saveCmd := command.Docker(t.source, "save", imageName)
-	loadCmd := command.Docker(t.dest, "load")
+func (t *ComposePipeTransfer) buildTransferCommands(imageName string) (*exec.Cmd, *exec.Cmd) {
+	saveCmd := engine.Cmd(t.sourceEngine, t.source, "save", imageName)
+	loadCmd := engine.Cmd(t.targetEngine, t.dest, "load")
 	return saveCmd, loadCmd
 }
 
-func (t *DockerComposePipeTransfer) getImagesFromCompose() ([]string, error) {
+func (t *ComposePipeTransfer) getImagesFromCompose() ([]string, error) {
 	f, err := os.Open(t.composeFile)
 	if err != nil {
 		return nil, fmt.Errorf("reading compose file: %w", err)
@@ -58,7 +62,7 @@ func (t *DockerComposePipeTransfer) getImagesFromCompose() ([]string, error) {
 	return compose.ImageNames(f, compose.ProjectName(t.composeFile))
 }
 
-func (t *DockerComposePipeTransfer) transferImage(cmdOutput io.Writer, imageName string) error {
+func (t *ComposePipeTransfer) transferImage(cmdOutput io.Writer, imageName string) error {
 	pipeReader, pipeWriter := io.Pipe()
 
 	saveCmd, loadCmd := t.buildTransferCommands(imageName)
