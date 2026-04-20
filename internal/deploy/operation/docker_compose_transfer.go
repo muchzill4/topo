@@ -3,10 +3,10 @@ package operation
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
-	"sort"
-	"strings"
 
+	"github.com/arm/topo/internal/compose"
 	"github.com/arm/topo/internal/deploy/command"
 	"golang.org/x/sync/errgroup"
 )
@@ -30,7 +30,7 @@ func (t *DockerComposePipeTransfer) Description() string {
 }
 
 func (t *DockerComposePipeTransfer) Run(cmdOutput io.Writer) error {
-	images, err := t.getImagesFromCompose(cmdOutput)
+	images, err := t.getImagesFromCompose()
 	if err != nil {
 		return err
 	}
@@ -49,23 +49,13 @@ func (t *DockerComposePipeTransfer) buildTransferCommands(imageName string) (*ex
 	return saveCmd, loadCmd
 }
 
-func (t *DockerComposePipeTransfer) getImagesFromCompose(cmdOutput io.Writer) ([]string, error) {
-	cmd := command.DockerCompose(t.source, t.composeFile, "config", "--images")
-	cmd.Stderr = cmdOutput
-	output, err := cmd.Output()
+func (t *DockerComposePipeTransfer) getImagesFromCompose() ([]string, error) {
+	f, err := os.Open(t.composeFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get image names from compose file: %w", err)
+		return nil, fmt.Errorf("reading compose file: %w", err)
 	}
-	var imageNames []string
-	lines := strings.SplitSeq(strings.TrimSpace(string(output)), "\n")
-	for line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			imageNames = append(imageNames, line)
-		}
-	}
-	sort.Strings(imageNames)
-	return imageNames, nil
+	defer f.Close() //nolint:errcheck
+	return compose.ImageNames(f, compose.ProjectName(t.composeFile))
 }
 
 func (t *DockerComposePipeTransfer) transferImage(cmdOutput io.Writer, imageName string) error {
