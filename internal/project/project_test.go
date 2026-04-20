@@ -1,6 +1,7 @@
 package project_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -56,14 +57,75 @@ func TestInit(t *testing.T) {
 	})
 }
 
-func mockTemplateSourceWithContent(t *testing.T, content, sourceName string) *mockTemplateSource {
+func TestClone(t *testing.T) {
+	t.Run("prints summary with next steps", func(t *testing.T) {
+		dir := t.TempDir()
+		destDir := filepath.Join(dir, "demo")
+		mockSource := mockSourceWithContent(t, `
+services:
+  app:
+    image: nginx:alpine
+`, "demo-source")
+		var output bytes.Buffer
+
+		err := project.NewClone(destDir, mockSource, arguments.NewStrictProviderChain()).Run(&output)
+
+		require.NoError(t, err)
+		out := output.String()
+		assert.Contains(t, out, "Project ready")
+		assert.Contains(t, out, fmt.Sprintf("Created in '%s'", destDir))
+		assert.Contains(t, out, "cd "+destDir)
+		assert.Contains(t, out, "topo deploy")
+	})
+
+	t.Run("clones source into destination directory", func(t *testing.T) {
+		dir := t.TempDir()
+		destDir := filepath.Join(dir, "demo")
+		mockSource := mockSourceWithContent(t, `
+services:
+  app:
+    image: nginx:alpine
+`, "demo-source")
+
+		err := project.Clone(destDir, mockSource, arguments.NewStrictProviderChain())
+
+		require.NoError(t, err)
+		composeFilePath := filepath.Join(destDir, template.ComposeFilename)
+		assert.FileExists(t, composeFilePath)
+	})
+
+	t.Run("removes destination directory when args resolution fails", func(t *testing.T) {
+		dir := t.TempDir()
+		destDir := filepath.Join(dir, "demo")
+		mockSource := mockSourceWithContent(t, `
+services:
+  app:
+    build:
+      args:
+        GREETING: ${GREETING}
+x-topo:
+  args:
+    GREETING:
+      description: "Greeting"
+      required: true
+`, "demo-source")
+
+		err := project.Clone(destDir, mockSource, arguments.NewStrictProviderChain())
+
+		require.Error(t, err)
+		_, statErr := os.Stat(destDir)
+		assert.True(t, os.IsNotExist(statErr))
+	})
+}
+
+func mockSourceWithContent(t *testing.T, content, sourceName string) *mockTemplateSource {
 	mockSource := &mockTemplateSource{}
 	mockSource.On("CopyTo", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		destDir := args.String(0)
 		testutil.RequireMkdirAll(t, destDir)
 		testutil.RequireWriteFile(t, filepath.Join(destDir, template.ComposeFilename), content)
 	})
-	mockSource.On("GetName").Return(sourceName, nil)
+	mockSource.On("GetName").Maybe().Return(sourceName, nil)
 	t.Cleanup(func() {
 		mockSource.AssertExpectations(t)
 	})
@@ -89,7 +151,7 @@ name: example-project
 services: {}
 `
 		targetProjectFile := testutil.WriteComposeFile(t, dir, projectYAML)
-		mockSource := mockTemplateSourceWithContent(t, `
+		mockSource := mockSourceWithContent(t, `
 services:
   app:
     image: nginx:alpine
@@ -139,7 +201,7 @@ services:
 		dir := t.TempDir()
 		targetProjectFile := testutil.WriteComposeFile(t, dir, emptyComposeProject)
 		sourceName := "ginger"
-		mockSource := mockTemplateSourceWithContent(t, `
+		mockSource := mockSourceWithContent(t, `
 services:
   app:
     volumes:
@@ -173,7 +235,7 @@ volumes:
 		dir := t.TempDir()
 		targetProjectFile := testutil.WriteComposeFile(t, dir, emptyComposeProject)
 		sourceName := "piggy-service"
-		mockSource := mockTemplateSourceWithContent(t, `
+		mockSource := mockSourceWithContent(t, `
 services:
   app:
     image: nginx:alpine
@@ -214,7 +276,7 @@ services:
 		dir := t.TempDir()
 		targetProjectFile := testutil.WriteComposeFile(t, dir, emptyComposeProject)
 		sourceName := "service-args-scope"
-		mockSource := mockTemplateSourceWithContent(t, `
+		mockSource := mockSourceWithContent(t, `
 services:
   app:
     image: nginx:alpine
@@ -272,7 +334,7 @@ services:
 		dir := t.TempDir()
 		targetProjectFile := testutil.WriteComposeFile(t, dir, emptyComposeProject)
 		sourceName := "oyster-service"
-		mockSource := mockTemplateSourceWithContent(t, `
+		mockSource := mockSourceWithContent(t, `
 services:
   app:
     image: nginx:alpine
@@ -317,7 +379,7 @@ services:
 		targetProjectFile := testutil.WriteComposeFile(t, dir, emptyComposeProject)
 
 		sourceName := "vinegar-service"
-		mockSource := mockTemplateSourceWithContent(t, `
+		mockSource := mockSourceWithContent(t, `
 services:
   app:
     image: nginx:alpine
