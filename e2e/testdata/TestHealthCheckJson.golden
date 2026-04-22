@@ -2,6 +2,11 @@
   "host": {
     "dependencies": [
       {
+        "name": "Topo",
+        "status": "ok",
+        "value": "topo"
+      },
+      {
         "name": "SSH",
         "status": "ok",
         "value": "ssh"

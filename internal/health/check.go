@@ -3,7 +3,9 @@ package health
 import (
 	"context"
 	"errors"
+	"fmt"
 
+	"github.com/arm/topo/internal/output/logger"
 	"github.com/arm/topo/internal/runner"
 )
 
@@ -44,4 +46,23 @@ func (b BinaryExists) Run(ctx context.Context, r runner.Runner, dep Dependency) 
 		return b.Fix, err
 	}
 	return "", nil
+}
+
+type VersionMatches struct {
+	CurrentVersion string
+	FetchLatest    func(ctx context.Context) (string, error)
+	Fix            string
+}
+
+func (v VersionMatches) Run(ctx context.Context, _ runner.Runner, _ Dependency) (string, error) {
+	latest, err := v.FetchLatest(ctx)
+	if err != nil {
+		logger.Warn(fmt.Sprintf("failed to fetch latest version: %v", err))
+		return "", nil
+	}
+	if latest == v.CurrentVersion {
+		return "", nil
+	}
+
+	return v.Fix, InfoError{Err: fmt.Errorf("out of date - current: %s, latest version: %s", v.CurrentVersion, latest)}
 }
