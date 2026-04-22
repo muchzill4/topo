@@ -19,7 +19,9 @@ var topoCloneCmd = &cobra.Command{
 The project-source argument uses scheme prefixes to specify the source type.
 The git: prefix is optional for git@host and https:// URLs.
 
-Git repository:
+Some projects require build arguments. Supply them on the command line or answer
+interactive prompts.`,
+	Example: `  # Git repository
   topo clone git@github.com:user/repo.git
   topo clone https://github.com/user/repo.git#develop
   topo clone git:git@github.com:user/repo.git
@@ -27,19 +29,18 @@ Git repository:
   topo clone git:ubuntu@example.com:repo.git
   topo clone git:builder@host:tools/platform.git#v2
 
-Local directory (must contain a Topo template):
+  # Local directory (must contain a Topo template)
   topo clone dir:/path/to/template/folder
   topo clone dir:./relative/path
 
-Some projects require build arguments. Supply them on the command line or answer prompts:
-
   # Will prompt for required args
   topo clone https://github.com/Arm-Examples/topo-welcome.git
-  # Provide args explicitly
+
+  # Provide build arguments explicitly
   topo clone https://github.com/Arm-Examples/topo-welcome.git GREETING_NAME="World"
+
   # With an explicit path
-  topo clone https://github.com/Arm-Examples/topo-welcome.git my-demo GREETING_NAME="World"
-`,
+  topo clone https://github.com/Arm-Examples/topo-welcome.git my-demo GREETING_NAME="World"`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
