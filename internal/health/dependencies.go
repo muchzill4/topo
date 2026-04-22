@@ -6,8 +6,6 @@ import (
 	"github.com/arm/topo/internal/runner"
 )
 
-type CheckKind int
-
 type WarningError struct{ Err error }
 
 func (w WarningError) Error() string { return w.Err.Error() }
