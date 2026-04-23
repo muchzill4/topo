@@ -10,13 +10,6 @@ import (
 	"github.com/arm/topo/internal/ssh"
 )
 
-func multiplexArgs() []string {
-	if runtime.GOOS == "windows" {
-		return nil
-	}
-	return []string{"-o", "ControlMaster=auto", "-o", "ControlPersist=10s", "-o", "ControlPath=~/.ssh/topo-cm-%r@%h:%p"}
-}
-
 type SSH struct {
 	dest ssh.Destination
 }
@@ -62,4 +55,11 @@ func (r *SSH) exec(ctx context.Context, cmdStr string, stdin []byte, extraSSHArg
 		return "", ErrTimeout
 	}
 	return out, err
+}
+
+func multiplexArgs() []string {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	return []string{"-o", "ControlMaster=auto", "-o", "ControlPersist=10s", "-o", "ControlPath=~/.ssh/topo-cm-%r@%h:%p"}
 }
