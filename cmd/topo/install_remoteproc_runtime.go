@@ -41,7 +41,7 @@ Falls back to ~/bin if no suitable locations are automatically found.`,
 }
 
 func installRemoteprocRuntime(targetDest ssh.Destination) (printable.Printable, error) {
-	r := runner.For(targetDest, runner.SSHOptions{})
+	r := runner.For(targetDest)
 	results, err := install.InstallBinariesFromGithubRelease(r, remoteprocRuntimeRepoURL, []string{"remoteproc-runtime", "containerd-shim-remoteproc-v1"})
 	if err != nil {
 		return nil, err

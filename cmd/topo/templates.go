@@ -26,7 +26,7 @@ var templatesCmd = &cobra.Command{
 
 		var profile *probe.HardwareProfile
 		if targetArg, exists := lookupTarget(cmd); exists {
-			r := runner.For(ssh.NewDestination(targetArg), runner.SSHOptions{Multiplex: true})
+			r := runner.For(ssh.NewDestination(targetArg))
 			ctx, cancel := contextWithTimeout(cmd)
 			defer cancel()
 			hwProfile, err := probe.Hardware(ctx, r)

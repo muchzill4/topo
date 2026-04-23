@@ -18,7 +18,7 @@ const (
 )
 
 func NewKeySetup(dest ssh.Destination, privKeyPath string, keyType KeyType) operation.Sequence {
-	sshRunner := runner.NewSSH(dest, runner.SSHOptions{})
+	sshRunner := runner.NewSSH(dest)
 	ops := []operation.Operation{
 		operations.NewSSHKeyGen("Generate SSH key pair for target", dest, string(keyType), privKeyPath, operations.SSHKeyGenOptions{}),
 		operations.NewPubKeyTransfer(privKeyPath, sshRunner),

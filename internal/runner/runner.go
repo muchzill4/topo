@@ -16,9 +16,9 @@ type Runner interface {
 	BinaryExists(ctx context.Context, bin string) error
 }
 
-func For(dest ssh.Destination, opts SSHOptions) Runner {
+func For(dest ssh.Destination) Runner {
 	if dest.IsPlainLocalhost() {
 		return NewLocal()
 	}
-	return NewSSH(dest, opts)
+	return NewSSH(dest)
 }
