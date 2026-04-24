@@ -106,11 +106,10 @@ func prepareRunner(ctx context.Context, dest ssh.Destination, acceptNewHostKeys 
 	if dest.IsPlainLocalhost() {
 		return runner.NewLocal(), nil
 	}
-	sshOpts := runner.SSHOptions{Multiplex: true}
-	if err := probe.SSHAuthentication(ctx, runner.NewSSH(dest, sshOpts), acceptNewHostKeys); err != nil {
+	if err := probe.SSHAuthentication(ctx, runner.NewSSH(dest), acceptNewHostKeys); err != nil {
 		return nil, err
 	}
-	return runner.NewSSH(dest, sshOpts), nil
+	return runner.NewSSH(dest), nil
 }
 
 func GenerateHostReport(statuses []DependencyStatus) HostReport {
