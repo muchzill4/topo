@@ -22,7 +22,7 @@ func TestProbeRemoteproc(t *testing.T) {
 		got, err := probe.Remoteproc(context.Background(), r)
 
 		require.NoError(t, err)
-		want := []probe.RemoteprocCPU{
+		want := []probe.RemoteProcessor{
 			{Name: "virtio0"},
 			{Name: "virtio1"},
 		}

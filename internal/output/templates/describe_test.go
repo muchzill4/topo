@@ -16,10 +16,10 @@ func TestPrintTargetDescription(t *testing.T) {
 	t.Run("PlainFormat", func(t *testing.T) {
 		t.Run("outputs valid yaml that round-trips back to the hardware profile", func(t *testing.T) {
 			profile := probe.HardwareProfile{
-				HostProcessor: []probe.HostProcessor{
+				HostProcessors: []probe.HostProcessor{
 					{Model: "Cortex-A55", Cores: 4, Features: []string{"asimd", "sve"}},
 				},
-				RemoteCPU: []probe.RemoteprocCPU{
+				RemoteProcessors: []probe.RemoteProcessor{
 					{Name: "remoteproc0"},
 				},
 				TotalMemoryKb: 16384,
@@ -30,15 +30,15 @@ func TestPrintTargetDescription(t *testing.T) {
 			err := printable.Print(toPrint, &out, term.Plain)
 
 			want := `
-host:
+hostProcessors:
   - model: Cortex-A55
     cores: 4
     features:
       - asimd
       - sve
-remoteprocs:
+remoteProcessors:
   - name: remoteproc0
-totalmemory_kb: 16384
+totalMemoryKb: 16384
 `
 			require.NoError(t, err)
 			assert.YAMLEq(t, want, out.String())
@@ -49,10 +49,10 @@ totalmemory_kb: 16384
 		t.Run("renders valid JSON with all fields", func(t *testing.T) {
 			toPrint := templates.PrintableTargetDescription{
 				HardwareProfile: probe.HardwareProfile{
-					HostProcessor: []probe.HostProcessor{
+					HostProcessors: []probe.HostProcessor{
 						{Model: "Cortex-A55", Cores: 4, Features: []string{"asimd", "sve"}},
 					},
-					RemoteCPU: []probe.RemoteprocCPU{
+					RemoteProcessors: []probe.RemoteProcessor{
 						{Name: "remoteproc0"},
 					},
 					TotalMemoryKb: 16384,
@@ -63,17 +63,17 @@ totalmemory_kb: 16384
 			err := printable.Print(toPrint, &out, term.JSON)
 
 			want := `{
-				"host": [
+				"hostProcessors": [
 					{
 						"model": "Cortex-A55",
 						"cores": 4,
 						"features": ["asimd", "sve"]
 					}
 				],
-				"remoteprocs": [
+				"remoteProcessors": [
 					{"name": "remoteproc0"}
 				],
-				"totalmemory_kb": 16384
+				"totalMemoryKb": 16384
 			}`
 			require.NoError(t, err)
 			assert.JSONEq(t, want, out.String())
