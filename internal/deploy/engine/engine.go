@@ -7,22 +7,20 @@ type Engine struct {
 }
 
 var (
-	Docker  = Engine{"docker"}
-	Podman  = Engine{"podman"}
-	Nerdctl = Engine{"nerdctl"}
+	Docker = Engine{"docker"}
+	Podman = Engine{"podman"}
 )
 
 var knownEngines = map[string]Engine{
-	"docker":  Docker,
-	"podman":  Podman,
-	"nerdctl": Nerdctl,
+	"docker": Docker,
+	"podman": Podman,
 }
 
 func ParseEngine(name string) (Engine, error) {
 	if e, ok := knownEngines[name]; ok {
 		return e, nil
 	}
-	return Engine{}, fmt.Errorf("unknown engine %q: supported engines are docker, podman, nerdctl", name)
+	return Engine{}, fmt.Errorf("unknown engine %q: supported engines are docker, podman", name)
 }
 
 func (e Engine) String() string {

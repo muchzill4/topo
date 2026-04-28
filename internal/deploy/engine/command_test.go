@@ -39,11 +39,11 @@ func TestCompose(t *testing.T) {
 		assert.Equal(t, "docker -H ssh://user@remote compose -f /path/to/compose.yaml up -d", got)
 	})
 
-	t.Run("uses nerdctl binary", func(t *testing.T) {
-		cmd := engine.ComposeCmd(engine.Nerdctl, engine.LocalHost, "compose.yaml", "build")
+	t.Run("uses podman binary", func(t *testing.T) {
+		cmd := engine.ComposeCmd(engine.Podman, engine.LocalHost, "compose.yaml", "build")
 
 		got := engine.String(cmd)
 
-		assert.Equal(t, "nerdctl compose -f compose.yaml build", got)
+		assert.Equal(t, "podman compose -f compose.yaml build", got)
 	})
 }
