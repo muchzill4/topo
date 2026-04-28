@@ -20,7 +20,7 @@ func TestComposePipeTransfer(t *testing.T) {
 		h := engine.LocalHost
 		tmpDir := t.TempDir()
 		composeFilePath := filepath.Join(tmpDir, "compose.yaml")
-		transfer := operation.NewComposePipeTransfer(e, e, composeFilePath, h, h)
+		transfer := operation.NewComposePipeTransfer(e, composeFilePath, h, h)
 
 		got := transfer.Description()
 
@@ -49,7 +49,7 @@ services:
 			buildOutput, err := buildCmd.CombinedOutput()
 			require.NoError(t, err, "failed to build image: %s", string(buildOutput))
 
-			transfer := operation.NewComposePipeTransfer(e, e, composeFilePath, h, h)
+			transfer := operation.NewComposePipeTransfer(e, composeFilePath, h, h)
 
 			err = transfer.Run(os.Stdout)
 

@@ -25,8 +25,6 @@ var (
 	forceRecreate     bool
 	noRecreate        bool
 	engineFlag        string
-	sourceEngineFlag  string
-	targetEngineFlag  string
 )
 
 var deployOpts deploy.DeployOptions
@@ -71,12 +69,11 @@ The compose file (compose.yaml) must be in the current working directory, as thi
 			return err
 		}
 
-		sourceEngine, targetEngine, err := resolveEngines(cmd)
+		eng, err := engine.ParseEngine(engineFlag)
 		if err != nil {
 			return err
 		}
-		deployOpts.SourceEngine = sourceEngine
-		deployOpts.TargetEngine = targetEngine
+		deployOpts.Engine = eng
 		deployOpts.TargetHost = ssh.NewDestination(targetArg)
 
 		if !skipProjectChecks {
@@ -149,34 +146,6 @@ func resolvePort(cmd *cobra.Command, flagValue string) (string, error) {
 	return flagValue, nil
 }
 
-func resolveEngines(cmd *cobra.Command) (engine.Engine, engine.Engine, error) {
-	sourceEngine, targetEngine := engine.Docker, engine.Docker
-
-	if cmd.Flags().Changed("engine") {
-		e, err := engine.ParseEngine(engineFlag)
-		if err != nil {
-			return engine.Engine{}, engine.Engine{}, err
-		}
-		sourceEngine = e
-		targetEngine = e
-	}
-	if cmd.Flags().Changed("source-engine") {
-		e, err := engine.ParseEngine(sourceEngineFlag)
-		if err != nil {
-			return engine.Engine{}, engine.Engine{}, err
-		}
-		sourceEngine = e
-	}
-	if cmd.Flags().Changed("target-engine") {
-		e, err := engine.ParseEngine(targetEngineFlag)
-		if err != nil {
-			return engine.Engine{}, engine.Engine{}, err
-		}
-		targetEngine = e
-	}
-	return sourceEngine, targetEngine, nil
-}
-
 func init() {
 	addTargetFlag(deployCmd)
 	deployCmd.Flags().StringVarP(&registryPort, "registry-port", "p", operation.DefaultRegistryPort, fmt.Sprintf("registry and SSH tunnel port (can also be set via %s env var)", portEnvVar))
@@ -185,8 +154,6 @@ func init() {
 	deployCmd.Flags().BoolVar(&noRecreate, "no-recreate", false, "prevent recreation of containers even if their configuration and image have changed")
 	deployCmd.Flags().BoolVar(&skipProjectChecks, "skip-project-checks", false, "skip project compatibility checks for the target platform")
 	deployCmd.Flags().StringVar(&engineFlag, "engine", "docker", "container engine for both source and target (docker, podman)")
-	deployCmd.Flags().StringVar(&sourceEngineFlag, "source-engine", "", "container engine for building images (overrides --engine)")
-	deployCmd.Flags().StringVar(&targetEngineFlag, "target-engine", "", "container engine on the target (overrides --engine)")
 	deployCmd.MarkFlagsMutuallyExclusive("force-recreate", "no-recreate")
 	rootCmd.AddCommand(deployCmd)
 }
