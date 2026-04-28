@@ -49,6 +49,6 @@ The compose file (compose.yaml) must be in the current working directory, as thi
 
 func init() {
 	addTargetFlag(topoStopCmd)
-	topoStopCmd.Flags().StringVar(&stopEngineFlag, "engine", "docker", "Container engine on the target (docker, podman, nerdctl, finch)")
+	topoStopCmd.Flags().StringVar(&stopEngineFlag, "engine", "docker", "Container engine on the target (docker, podman)")
 	rootCmd.AddCommand(topoStopCmd)
 }

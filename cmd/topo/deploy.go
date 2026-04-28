@@ -184,7 +184,7 @@ func init() {
 	deployCmd.Flags().BoolVar(&forceRecreate, "force-recreate", false, "force recreation of containers even if their configuration and image haven't changed")
 	deployCmd.Flags().BoolVar(&noRecreate, "no-recreate", false, "prevent recreation of containers even if their configuration and image have changed")
 	deployCmd.Flags().BoolVar(&skipProjectChecks, "skip-project-checks", false, "skip project compatibility checks for the target platform")
-	deployCmd.Flags().StringVar(&engineFlag, "engine", "docker", "container engine for both source and target (docker, podman, nerdctl)")
+	deployCmd.Flags().StringVar(&engineFlag, "engine", "docker", "container engine for both source and target (docker, podman)")
 	deployCmd.Flags().StringVar(&sourceEngineFlag, "source-engine", "", "container engine for building images (overrides --engine)")
 	deployCmd.Flags().StringVar(&targetEngineFlag, "target-engine", "", "container engine on the target (overrides --engine)")
 	deployCmd.MarkFlagsMutuallyExclusive("force-recreate", "no-recreate")

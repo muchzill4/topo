@@ -16,7 +16,6 @@ func TestParseEngine(t *testing.T) {
 		}{
 			{"docker", engine.Docker},
 			{"podman", engine.Podman},
-			{"nerdctl", engine.Nerdctl},
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
@@ -29,9 +28,9 @@ func TestParseEngine(t *testing.T) {
 	})
 
 	t.Run("returns error for unknown engine", func(t *testing.T) {
-		_, err := engine.ParseEngine("unknown")
+		_, err := engine.ParseEngine("nerdctl")
 
-		assert.EqualError(t, err, `unknown engine "unknown": supported engines are docker, podman, nerdctl`)
+		assert.EqualError(t, err, `unknown engine "nerdctl": supported engines are docker, podman`)
 	})
 }
 
