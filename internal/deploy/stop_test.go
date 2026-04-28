@@ -71,7 +71,7 @@ services:
 			testutil.RequireWriteFile(t, composeFilePath, composeFileContent)
 			t.Cleanup(func() { testutil.ForceComposeDown(t, e, composeFilePath) })
 
-			deployOpts := deploy.DeployOptions{TargetHost: remoteDockerHost, SourceEngine: e, TargetEngine: e}
+			deployOpts := deploy.DeployOptions{TargetHost: remoteDockerHost, Engine: e}
 			deployment, _ := deploy.NewDeployment(composeFilePath, deployOpts)
 
 			require.NoError(t, deployment.Run(os.Stdout))

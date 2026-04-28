@@ -12,20 +12,18 @@ import (
 )
 
 type ComposePipeTransfer struct {
-	sourceEngine engine.Engine
-	targetEngine engine.Engine
-	composeFile  string
-	source       engine.Host
-	dest         engine.Host
+	engine      engine.Engine
+	composeFile string
+	source      engine.Host
+	dest        engine.Host
 }
 
-func NewComposePipeTransfer(sourceEngine, targetEngine engine.Engine, composeFile string, source, dest engine.Host) *ComposePipeTransfer {
+func NewComposePipeTransfer(e engine.Engine, composeFile string, source, dest engine.Host) *ComposePipeTransfer {
 	return &ComposePipeTransfer{
-		sourceEngine: sourceEngine,
-		targetEngine: targetEngine,
-		composeFile:  composeFile,
-		source:       source,
-		dest:         dest,
+		engine:      e,
+		composeFile: composeFile,
+		source:      source,
+		dest:        dest,
 	}
 }
 
@@ -48,8 +46,8 @@ func (t *ComposePipeTransfer) Run(cmdOutput io.Writer) error {
 }
 
 func (t *ComposePipeTransfer) buildTransferCommands(imageName string) (*exec.Cmd, *exec.Cmd) {
-	saveCmd := engine.Cmd(t.sourceEngine, t.source, "save", imageName)
-	loadCmd := engine.Cmd(t.targetEngine, t.dest, "load")
+	saveCmd := engine.Cmd(t.engine, t.source, "save", imageName)
+	loadCmd := engine.Cmd(t.engine, t.dest, "load")
 	return saveCmd, loadCmd
 }
 

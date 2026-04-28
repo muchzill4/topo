@@ -58,7 +58,7 @@ func TestRegistryTransfer(t *testing.T) {
 	t.Run("Description", func(t *testing.T) {
 		t.Run("it returns expected string", func(t *testing.T) {
 			localHost := engine.LocalHost
-			transfer := operation.NewRegistryTransfer(e, e, "any.yaml", localHost, localHost, operation.DefaultRegistryPort)
+			transfer := operation.NewRegistryTransfer(e, "any.yaml", localHost, localHost, operation.DefaultRegistryPort)
 
 			got := transfer.Description()
 
@@ -103,7 +103,7 @@ services:
 				_ = rmReg.Run()
 			})
 
-			transfer := operation.NewRegistryTransfer(e, e, composeFilePath, h, h, port)
+			transfer := operation.NewRegistryTransfer(e, composeFilePath, h, h, port)
 			err = transfer.Run(os.Stdout)
 			require.NoError(t, err)
 			testutil.RequireImageExists(t, e, h, imageName)
