@@ -125,6 +125,7 @@ func (ct *CheckRemoteForwardNotExposed) Run(w io.Writer) error {
 		return nil
 	}
 
+	// TODO: use curl.exe on windows
 	cmd := exec.Command("curl", fmt.Sprintf("%s:%s", ct.Host, ct.Port), "--max-time", "1")
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
