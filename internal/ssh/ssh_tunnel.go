@@ -130,11 +130,7 @@ func (ct *CheckRemoteForwardNotExposed) Run(w io.Writer) error {
 }
 
 func RemotePortRefusedConnection(host, port string) bool {
-	curl := "curl"
-	if runtime.GOOS == "windows" {
-		curl = "curl.exe"
-	}
-	cmd := exec.Command(curl, fmt.Sprintf("%s:%s", host, port), "--max-time", "5")
+	cmd := exec.Command("curl", fmt.Sprintf("%s:%s", host, port), "--max-time", "5")
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	_ = cmd.Run()
