@@ -130,8 +130,11 @@ func (ct *CheckRemoteForwardNotExposed) Run(w io.Writer) error {
 }
 
 func IsRemotePortDefinitelyNotListening(host, port string) bool {
-	// TODO: use curl.exe on windows
-	cmd := exec.Command("curl", fmt.Sprintf("%s:%s", host, port), "--max-time", "1")
+	curl := "curl"
+	if runtime.GOOS == "windows" {
+		curl = "curl.exe"
+	}
+	cmd := exec.Command(curl, fmt.Sprintf("%s:%s", host, port), "--max-time", "1")
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	_ = cmd.Run()
