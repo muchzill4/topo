@@ -101,15 +101,15 @@ func (s *SSHTunnelStart) Run(w io.Writer) error {
 }
 
 type CheckRemoteForwardNotExposed struct {
-	Dest Destination
-	Port string
+	TargetDest Destination
+	Port       string
 }
 
 // Checks whether the RemoteForward port exposes the registry to the target's
 // network, rather than being limited to target loopback. This can happen when
 // sshd permits non-loopback remote forwards, such as GatewayPorts.
-func NewCheckRemoteForwardNotExposed(dest Destination, port string) *CheckRemoteForwardNotExposed {
-	return &CheckRemoteForwardNotExposed{Dest: dest, Port: port}
+func NewCheckRemoteForwardNotExposed(targetDest Destination, port string) *CheckRemoteForwardNotExposed {
+	return &CheckRemoteForwardNotExposed{TargetDest: targetDest, Port: port}
 }
 
 func (ct *CheckRemoteForwardNotExposed) Description() string {
@@ -117,11 +117,11 @@ func (ct *CheckRemoteForwardNotExposed) Description() string {
 }
 
 func (ct *CheckRemoteForwardNotExposed) Run(w io.Writer) error {
-	if ct.Dest.IsLocalhost() {
+	if ct.TargetDest.IsLocalhost() {
 		return nil
 	}
 
-	host := NewConfig(ct.Dest).HostName
+	host := NewConfig(ct.TargetDest).HostName
 	if IsRemotePortDefinitelyNotListening(host, ct.Port) {
 		_, _ = fmt.Fprintf(w, "Port %s is bound to remote loopback only\n", ct.Port)
 		return nil
