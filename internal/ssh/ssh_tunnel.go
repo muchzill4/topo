@@ -134,7 +134,7 @@ func IsRemotePortDefinitelyNotListening(host, port string) bool {
 	if runtime.GOOS == "windows" {
 		curl = "curl.exe"
 	}
-	cmd := exec.Command(curl, fmt.Sprintf("%s:%s", host, port), "--max-time", "1")
+	cmd := exec.Command(curl, fmt.Sprintf("%s:%s", host, port), "--max-time", "5")
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	_ = cmd.Run()
