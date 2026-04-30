@@ -122,14 +122,14 @@ func (ct *CheckRemoteForwardNotExposed) Run(w io.Writer) error {
 	}
 
 	host := NewConfig(ct.TargetDest).HostName
-	if IsRemotePortDefinitelyNotListening(host, ct.Port) {
+	if RemotePortRefusedConnection(host, ct.Port) {
 		_, _ = fmt.Fprintf(w, "Port %s is bound to remote loopback only\n", ct.Port)
 		return nil
 	}
 	return fmt.Errorf("remote sshd might be exposing the forwarded port %s on its network (likely GatewayPorts=yes); the local registry may be reachable without SSH auth", ct.Port)
 }
 
-func IsRemotePortDefinitelyNotListening(host, port string) bool {
+func RemotePortRefusedConnection(host, port string) bool {
 	curl := "curl"
 	if runtime.GOOS == "windows" {
 		curl = "curl.exe"
