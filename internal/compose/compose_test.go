@@ -188,6 +188,66 @@ func TestRegisterVolumes(t *testing.T) {
 	})
 }
 
+func TestImageNames(t *testing.T) {
+	t.Run("uses explicit image name", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "compose.yaml")
+		testutil.RequireWriteFile(t, path, `
+services:
+  app:
+    image: myapp:latest
+  db:
+    image: postgres:16
+`)
+
+		got, err := compose.ImageNames(path)
+
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []string{"myapp:latest", "postgres:16"}, got)
+	})
+
+	t.Run("derives image name from project and service when no image key", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "compose.yaml")
+		testutil.RequireWriteFile(t, path, `
+name: hello
+services:
+  app:
+    build: .
+  db:
+    build: .
+`)
+
+		got, err := compose.ImageNames(path)
+
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []string{"hello-app", "hello-db"}, got)
+	})
+
+	t.Run("prefers explicit image over derived name", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "compose.yaml")
+		testutil.RequireWriteFile(t, path, `
+name: myproject
+services:
+  app:
+    build: .
+    image: myapp:v2
+`)
+
+		got, err := compose.ImageNames(path)
+
+		require.NoError(t, err)
+		assert.Equal(t, []string{"myapp:v2"}, got)
+	})
+
+	t.Run("returns error for invalid yaml", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "compose.yaml")
+		testutil.RequireWriteFile(t, path, `{invalid`)
+
+		_, err := compose.ImageNames(path)
+
+		assert.Error(t, err)
+	})
+}
+
 func TestPullableServices(t *testing.T) {
 	t.Run("returns services without a build key", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "compose.yaml")
