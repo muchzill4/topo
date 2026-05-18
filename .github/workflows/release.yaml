@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       pre-release:
-        description: Publish signed artifacts under the pre-release Artifactory layout.
+        description: Pre-release
         required: false
         type: boolean
         default: false
@@ -36,9 +36,10 @@ jobs:
       - name: Calculate next version
         id: calculate_next_version
         run: |
-          if ! next="$(svu next)"; then
-            echo "svu failed" >&2
-            exit 1
+          if [ "${{ inputs.pre-release }}" = "true" ]; then
+            next="$(svu prerelease --prerelease pre)"
+          else
+            next="$(svu next)"
           fi
           echo "next_version=$next" >> "$GITHUB_OUTPUT"
 
