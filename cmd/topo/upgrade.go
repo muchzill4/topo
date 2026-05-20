@@ -28,7 +28,9 @@ var upgradeCmd = &cobra.Command{
 		defer cancel()
 
 		newVersion, err := upgrade.Upgrade(ctx, spinner)
-		spinner.Stop()
+		if spinner != nil {
+			spinner.Stop()
+		}
 		if err != nil {
 			return err
 		}
@@ -44,6 +46,10 @@ var upgradeCmd = &cobra.Command{
 }
 
 func init() {
+	binPath, err := upgrade.CurrentBinaryPath()
+	if err == nil {
+		upgradeCmd.Hidden = !upgrade.IsBinaryManagedByUs(binPath)
+	}
 	addTimeoutFlag(upgradeCmd, 0)
 	rootCmd.AddCommand(upgradeCmd)
 }

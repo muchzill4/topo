@@ -114,11 +114,25 @@ resolve_install_dir() {
     echo "Error: cannot create directory: ${install_dir}" >&2
     exit 1
   fi
+  if is_homebrew_managed_dir "$install_dir"; then
+    echo "Error: ${install_dir} is managed by Homebrew" >&2
+    echo "Install with Homebrew instead, or choose a non-Homebrew path such as \$HOME/.local/bin." >&2
+    exit 1
+  fi
   if ! install_dir="$(cd "$install_dir" && pwd -L)"; then
     echo "Error: cannot resolve directory: ${install_dir}" >&2
     exit 1
   fi
   echo "$install_dir"
+}
+
+is_homebrew_managed_dir() {
+  case "$1" in
+    /opt/homebrew|/opt/homebrew/*|/home/linuxbrew/.linuxbrew|/home/linuxbrew/.linuxbrew/*|/usr/local/Cellar|/usr/local/Cellar/*|/usr/local/Homebrew|/usr/local/Homebrew/*)
+      return 0 ;;
+  esac
+
+  return 1
 }
 
 is_dir_on_path() {
@@ -189,11 +203,12 @@ install_binary() {
 main() {
   parse_args "$@"
 
+  install_dir="$(resolve_install_dir "$ARG_INSTALL_DIR")"
+
   version="$(resolve_version "$ARG_VERSION")"
   echo "Installing ${BINARY_NAME} ${version}"
 
   url="$(build_download_url "$version")"
-  install_dir="$(resolve_install_dir "$ARG_INSTALL_DIR")"
 
   tmpdir="$(mktemp -d)"
   trap 'rm -rf "$tmpdir"' EXIT
