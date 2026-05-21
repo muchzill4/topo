@@ -28,8 +28,8 @@ func ListBuiltinTemplates() ([]Repo, error) {
 	return ParseTemplates(TemplatesJSON)
 }
 
-func ListTemplatesFromURL(url string) ([]Repo, error) {
-	data, err := FetchTemplatesJSON(url)
+func ListTemplatesFromURL(ctx context.Context, url string) ([]Repo, error) {
+	data, err := FetchTemplatesJSON(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch templates: %w", err)
 	}
@@ -46,7 +46,7 @@ func ParseTemplates(b []byte) ([]Repo, error) {
 	return templates, nil
 }
 
-func FetchTemplatesJSON(url string) ([]byte, error) {
+func FetchTemplatesJSON(ctx context.Context, url string) ([]byte, error) {
 	const filePrefix = "file://"
 	if path, found := strings.CutPrefix(url, filePrefix); found {
 		data, err := os.ReadFile(path)
@@ -56,16 +56,16 @@ func FetchTemplatesJSON(url string) ([]byte, error) {
 		return data, nil
 	}
 
-	data, err := httpGet(url)
+	data, err := httpGet(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch template: %w", err)
 	}
 	return data, nil
 }
 
-func httpGet(url string) ([]byte, error) {
+func httpGet(ctx context.Context, url string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(
-		context.Background(),
+		ctx,
 		http.MethodGet,
 		url,
 		nil,

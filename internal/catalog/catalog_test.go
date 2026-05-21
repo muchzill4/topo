@@ -1,6 +1,7 @@
 package catalog_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -90,7 +91,7 @@ func TestFetchTemplatesJSON(t *testing.T) {
 		defer server.Close()
 
 		url := fmt.Sprintf("%s/give-json", server.URL)
-		got, err := catalog.FetchTemplatesJSON(url)
+		got, err := catalog.FetchTemplatesJSON(context.Background(), url)
 
 		require.NoError(t, err)
 		assert.Equal(t, catalogJSON, string(got))
@@ -102,7 +103,7 @@ func TestFetchTemplatesJSON(t *testing.T) {
 		testutil.RequireWriteFile(t, path, catalogJSON)
 
 		url := fmt.Sprintf("file://%s", path)
-		got, err := catalog.FetchTemplatesJSON(url)
+		got, err := catalog.FetchTemplatesJSON(context.Background(), url)
 
 		require.NoError(t, err)
 		assert.Equal(t, catalogJSON, string(got))
@@ -116,7 +117,7 @@ func TestFetchTemplatesJSON(t *testing.T) {
 		defer server.Close()
 
 		url := fmt.Sprintf("%s/give-json-pretty-please", server.URL)
-		_, err := catalog.FetchTemplatesJSON(url)
+		_, err := catalog.FetchTemplatesJSON(context.Background(), url)
 
 		assert.Error(t, err)
 	})

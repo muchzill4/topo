@@ -22,6 +22,9 @@ var templatesCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		outputFormat := resolveOutput(cmd)
 
+		ctx, cancel := contextWithTimeout(cmd)
+		defer cancel()
+
 		var repos []catalog.Repo
 		var err error
 		source := getSource(cmd)
@@ -29,7 +32,7 @@ var templatesCmd = &cobra.Command{
 		case "":
 			repos, err = catalog.ListBuiltinTemplates()
 		default:
-			repos, err = catalog.ListTemplatesFromURL(source)
+			repos, err = catalog.ListTemplatesFromURL(ctx, source)
 		}
 		if err != nil {
 			return err
@@ -38,8 +41,6 @@ var templatesCmd = &cobra.Command{
 		var profile *probe.HardwareProfile
 		if targetArg, exists := lookupTarget(cmd); exists {
 			r := runner.For(ssh.NewDestination(targetArg))
-			ctx, cancel := contextWithTimeout(cmd)
-			defer cancel()
 			hwProfile, err := probe.Hardware(ctx, r)
 			if err != nil {
 				return err
