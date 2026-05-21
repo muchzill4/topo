@@ -85,7 +85,7 @@ func TestFetchTemplatesJSON(t *testing.T) {
 		catalogJSON := `[{"json": "for-real"}]`
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/give-json" {
-				w.Write([]byte(catalogJSON))
+				w.Write([]byte(catalogJSON)) // nolint:errcheck
 			}
 		}))
 		defer server.Close()
@@ -112,7 +112,6 @@ func TestFetchTemplatesJSON(t *testing.T) {
 	t.Run("returns error when request fails", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
-
 		}))
 		defer server.Close()
 

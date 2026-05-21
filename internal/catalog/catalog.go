@@ -70,13 +70,16 @@ func httpGet(ctx context.Context, url string) ([]byte, error) {
 		url,
 		nil,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("request failed: %s", resp.Status)
