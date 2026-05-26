@@ -1,0 +1,101 @@
+package templates_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"testing"
+
+	"github.com/arm/topo/internal/deploy"
+	"github.com/arm/topo/internal/output/printable"
+	"github.com/arm/topo/internal/output/templates"
+	"github.com/arm/topo/internal/output/term"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestPrintPSReport(t *testing.T) {
+	t.Run("PlainFormat", func(t *testing.T) {
+		t.Run("renders container image, status, and address", func(t *testing.T) {
+			toPrint := templates.PrintablePSReport{
+				Containers: []deploy.Container{
+					{
+						Image:   "my-app",
+						Status:  "Up 5 minutes",
+						Address: "localhost:8080",
+					},
+				},
+			}
+			var out bytes.Buffer
+
+			err := printable.Print(toPrint, &out, term.Plain)
+
+			require.NoError(t, err)
+			assert.Contains(t, out.String(), "my-app")
+			assert.Contains(t, out.String(), "Up 5 minutes")
+			assert.Contains(t, out.String(), "localhost:8080")
+		})
+
+		t.Run("renders multiple containers", func(t *testing.T) {
+			toPrint := templates.PrintablePSReport{
+				Containers: []deploy.Container{
+					{Image: "web"},
+					{Image: "db"},
+				},
+			}
+			var out bytes.Buffer
+
+			err := printable.Print(toPrint, &out, term.Plain)
+
+			require.NoError(t, err)
+			assert.Contains(t, out.String(), "web")
+			assert.Contains(t, out.String(), "db")
+		})
+
+		t.Run("renders empty message when no containers", func(t *testing.T) {
+			toPrint := templates.PrintablePSReport{Containers: nil}
+			var out bytes.Buffer
+
+			err := printable.Print(toPrint, &out, term.Plain)
+
+			require.NoError(t, err)
+			assert.Contains(t, out.String(), "No containers deployed from this project are running.")
+		})
+	})
+
+	t.Run("JSONFormat", func(t *testing.T) {
+		t.Run("renders report as valid JSON with expected fields", func(t *testing.T) {
+			toPrint := templates.PrintablePSReport{
+				Containers: []deploy.Container{
+					{
+						Image:   "my-app",
+						Status:  "Up 5 minutes",
+						Address: "localhost:8080",
+					},
+				},
+			}
+			var out bytes.Buffer
+
+			err := printable.Print(toPrint, &out, term.JSON)
+
+			require.NoError(t, err)
+			want := `{
+				"containers": [{"image": "my-app", "status": "Up 5 minutes", "address": "localhost:8080"}]
+			}`
+			assert.JSONEq(t, want, out.String())
+		})
+
+		t.Run("renders empty containers as empty array", func(t *testing.T) {
+			toPrint := templates.PrintablePSReport{
+				Containers: []deploy.Container{},
+			}
+			var out bytes.Buffer
+
+			err := printable.Print(toPrint, &out, term.JSON)
+
+			require.NoError(t, err)
+			var got map[string]any
+			require.NoError(t, json.Unmarshal(out.Bytes(), &got))
+			assert.Equal(t, []any{}, got["containers"])
+		})
+	})
+}

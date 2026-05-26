@@ -18,7 +18,7 @@ func TestDeploy(t *testing.T) {
 	container := testutil.StartContainer(t, testutil.DinDContainer)
 	topo := buildBinary(t)
 
-	t.Run("Init, add and Deploy", func(t *testing.T) {
+	t.Run("Init, extend, deploy and ps", func(t *testing.T) {
 		projectDir := t.TempDir()
 		composeFile := filepath.Join(projectDir, "compose.yaml")
 		t.Cleanup(func() {
@@ -36,6 +36,8 @@ func TestDeploy(t *testing.T) {
 		port, err := testutil.GetContainerPublicPort(container.Name, "8080")
 		require.NoError(t, err)
 		assertResponseBody(t, fmt.Sprintf("http://localhost:%s/", port), expectedResponse)
+
+		requirePS(t, topo, projectDir, container.SSHDestination, "hello-server", "8080")
 	})
 
 	t.Run("Clone and deploy", func(t *testing.T) {
@@ -53,6 +55,8 @@ func TestDeploy(t *testing.T) {
 		port, err := testutil.GetContainerPublicPort(container.Name, "8080")
 		require.NoError(t, err)
 		assertResponseBody(t, fmt.Sprintf("http://localhost:%s/", port), expectedResponse)
+
+		requirePS(t, topo, cloneDir, container.SSHDestination, "hello-server", "8080")
 	})
 }
 
@@ -103,6 +107,19 @@ func requireDeploy(t *testing.T, topo, projectDir, sshDestination string, extraA
 	out, err := deployCmd.CombinedOutput()
 
 	require.NoErrorf(t, err, "deploy failed: %s", out)
+}
+
+func requirePS(t *testing.T, topo, projectDir, sshDestination string, expectedOutputs ...string) {
+	t.Helper()
+	psCmd := exec.Command(topo, "ps", "--target", sshDestination)
+	psCmd.Dir = projectDir
+
+	out, err := psCmd.CombinedOutput()
+
+	require.NoErrorf(t, err, "ps failed: %s", out)
+	for _, expected := range expectedOutputs {
+		assert.Contains(t, string(out), expected)
+	}
 }
 
 func assertResponseBody(t *testing.T, url, wantBody string) {
