@@ -63,7 +63,7 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean --draft
+          args: release --clean --skip=publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.calculate_next_version.outputs.next_version }}
@@ -130,10 +130,9 @@ jobs:
         run: |
           gh workflow run sign-and-release.yml \
             --repo Arm-Debug/topo-publisher \
-            --ref v7 \
+            --ref v8 \
             --field source-run-id=${{ github.run_id }} \
             --field release-version=${VERSION} \
-            --field release-tag=${VERSION} \
             --field pre-release=${{ inputs.pre-release }}
 
           echo "Waiting for topo-publisher sign-and-release run to be created"
@@ -143,7 +142,7 @@ jobs:
             publisher_run_id="$(gh run list \
               --repo Arm-Debug/topo-publisher \
               --workflow sign-and-release.yml \
-              --branch v7 \
+              --branch v8 \
               --event workflow_dispatch \
               --limit 5 \
               --json createdAt,databaseId,displayTitle \
@@ -205,9 +204,25 @@ jobs:
           echo "::error::Timed out waiting for $ARTIFACT_NAME artifact from topo-publisher run $PUBLISHER_RUN_ID"
           exit 1
 
-      - name: Upload release links artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-links
-          path: publisher-artifacts/release_links.md
-          if-no-files-found: error
+      - name: Update and publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: arm/topo
+          RELEASE_TAG: ${{ steps.calculate_next_version.outputs.next_version }}
+          PRE_RELEASE: ${{ inputs.pre-release }}
+        run: |
+          gh api repos/{owner}/{repo}/releases/generate-notes \
+            -f tag_name="$RELEASE_TAG" \
+            --jq .body > existing_body.md
+
+          {
+            cat publisher-artifacts/release_links.md
+            printf '\n\n## Changelog\n'
+            cat existing_body.md
+          } > combined_notes.md
+
+          if [ "$PRE_RELEASE" = "true" ]; then
+            gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --prerelease --notes-file combined_notes.md
+          else
+            gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file combined_notes.md
+          fi
