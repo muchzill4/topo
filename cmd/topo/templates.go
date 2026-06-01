@@ -29,7 +29,7 @@ var templatesCmd = &cobra.Command{
 		var err error
 		source := getSource(cmd)
 		switch source {
-		case "":
+		case builtinTemplates:
 			repos, err = catalog.ListBuiltinTemplates()
 		default:
 			repos, err = catalog.ListTemplatesFromURL(ctx, source)
@@ -62,6 +62,8 @@ func init() {
 	rootCmd.AddCommand(templatesCmd)
 }
 
+const builtinTemplates = "builtin"
+
 func getSource(cmd *cobra.Command) string {
 	if experimentalFeaturesEnabled() {
 		flagValue, err := cmd.Flags().GetString(sourceFlag)
@@ -70,5 +72,5 @@ func getSource(cmd *cobra.Command) string {
 		}
 		return flagValue
 	}
-	return ""
+	return builtinTemplates
 }
