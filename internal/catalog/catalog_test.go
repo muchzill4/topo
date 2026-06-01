@@ -1,75 +1,98 @@
 package catalog_test
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	"github.com/arm/topo/internal/catalog"
+	"github.com/arm/topo/internal/deploy/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestListRepos(t *testing.T) {
-	t.Run("parses valid JSON successfully", func(t *testing.T) {
-		jsonData := []byte(`[
-			{
-				"name": "test-repo",
-				"description": "A test template",
-				"features": ["feat1", "feat2"],
-				"url": "https://example.com/repo.git",
-				"ref": "main"
-			},
-			{
-				"name": "another-repo",
-				"description": "Another template",
-				"features": null,
-				"url": "https://example.com/another.git",
-				"ref": "v1.0.0"
+func TestListTemplatesFromURL(t *testing.T) {
+	t.Run("given a remote url, it fetches the catalog json", func(t *testing.T) {
+		repos := []catalog.Repo{{Name: "hi"}}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/give-json" {
+				w.Write(asJSON(repos)) // nolint:errcheck
 			}
-		]`)
+		}))
+		defer server.Close()
 
-		templates, err := catalog.ParseRepos(jsonData)
+		url := fmt.Sprintf("%s/give-json", server.URL)
+		got, err := catalog.ListTemplatesFromURL(context.Background(), url)
 
 		require.NoError(t, err)
-		assert.Len(t, templates, 2)
-		assert.Equal(t, catalog.Repo{
-			Name:        "test-repo",
-			Description: "A test template",
-			Features:    []string{"feat1", "feat2"},
-			URL:         "https://example.com/repo.git",
-			Ref:         "main",
-		}, templates[0])
-		assert.Equal(t, catalog.Repo{
-			Name:        "another-repo",
-			Description: "Another template",
-			Features:    nil,
-			URL:         "https://example.com/another.git",
-			Ref:         "v1.0.0",
-		}, templates[1])
+		assert.Equal(t, repos, got)
 	})
 
-	t.Run("returns error for invalid JSON", func(t *testing.T) {
-		jsonData := []byte(`[{"id": "test", invalid}]`)
+	t.Run("given a file:// url, it fetches the catalog json", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "file.json")
+		repos := []catalog.Repo{{Name: "aloha"}}
+		testutil.RequireWriteFile(t, path, string(asJSON(repos)))
 
-		_, err := catalog.ParseRepos(jsonData)
+		url := fmt.Sprintf("file://%s", path)
+		got, err := catalog.ListTemplatesFromURL(context.Background(), url)
+
+		require.NoError(t, err)
+		assert.Equal(t, repos, got)
+	})
+
+	t.Run("errors when request fails", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.NotFound(w, r)
+		}))
+		defer server.Close()
+
+		url := fmt.Sprintf("%s/give-json-pretty-please", server.URL)
+		_, err := catalog.ListTemplatesFromURL(context.Background(), url)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("errors for invalid JSON", func(t *testing.T) {
+		jsonData := []byte(`[{"id": "test", invalid}]`)
+		path := filepath.Join(t.TempDir(), "file.json")
+		testutil.RequireWriteFile(t, path, string(jsonData))
+
+		url := fmt.Sprintf("file://%s", path)
+		_, err := catalog.ListTemplatesFromURL(context.Background(), url)
 
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "failed to unmarshal templates")
 	})
 
-	t.Run("returns error for unknown fields", func(t *testing.T) {
+	t.Run("errors for unknown fields", func(t *testing.T) {
 		jsonData := []byte(`[
 			{
 				"name": "test",
 				"description": "desc",
 				"features": [],
 				"url": "https://example.com",
-				"unknown_field": "value"
+				"yolo-swag": "value"
 			}
 		]`)
+		path := filepath.Join(t.TempDir(), "file.json")
+		testutil.RequireWriteFile(t, path, string(jsonData))
 
-		_, err := catalog.ParseRepos(jsonData)
+		url := fmt.Sprintf("file://%s", path)
+		_, err := catalog.ListTemplatesFromURL(context.Background(), url)
 
 		require.Error(t, err)
-		assert.ErrorContains(t, err, "failed to unmarshal templates")
+		assert.ErrorContains(t, err, `unknown field "yolo-swag"`)
 	})
+}
+
+func asJSON(repos []catalog.Repo) []byte {
+	data, err := json.Marshal(repos)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }

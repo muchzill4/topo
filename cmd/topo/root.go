@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/arm/topo/internal/env"
 	"github.com/arm/topo/internal/output/logger"
 	"github.com/arm/topo/internal/output/term"
 	"github.com/arm/topo/internal/version"
@@ -93,4 +94,9 @@ func resolveOutput(cmd *cobra.Command) term.Format {
 		return term.JSON
 	}
 	return term.Plain
+}
+
+func experimentalFeaturesEnabled() bool {
+	const experimentalFeaturesEnvVar = "TOPO_EXPERIMENTAL_FEATURES"
+	return env.IsVarTruthy(experimentalFeaturesEnvVar)
 }
