@@ -64,9 +64,9 @@ func init() {
 
 func getSource(cmd *cobra.Command) string {
 	if experimentalFeaturesEnabled() {
-		flagValue, err := cmd.Flags().GetString("source")
+		flagValue, err := cmd.Flags().GetString(sourceFlag)
 		if err != nil {
-			panic(fmt.Sprintf("internal error: source flag not registered: %v", err))
+			panic(fmt.Sprintf("internal error: %s flag not registered: %v", sourceFlag, err))
 		}
 		return flagValue
 	}
