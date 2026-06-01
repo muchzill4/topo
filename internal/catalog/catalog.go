@@ -84,8 +84,7 @@ func httpGet(ctx context.Context, rawURL string) ([]byte, error) {
 		return nil, err
 	}
 
-	client := http.Client{}
-	resp, err := client.Do(req) // #nosec G704 -- URL is explicitly provided by the CLI user and scheme-validated above.
+	resp, err := http.DefaultClient.Do(req) // #nosec G704 -- URL is explicitly provided by the CLI user and scheme-validated above.
 	if err != nil {
 		return nil, err
 	}
