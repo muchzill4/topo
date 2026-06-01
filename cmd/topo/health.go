@@ -77,20 +77,13 @@ func init() {
 }
 
 func resolveSkipVersionChecks(cmd *cobra.Command) bool {
-	if skipVersionChecks, wasArgProvided := getSkipVersionChecksFlagValue(cmd); wasArgProvided {
-		return skipVersionChecks
-	}
-	return env.IsVarTruthy(skipVersionChecksEnvVar)
-}
-
-func getSkipVersionChecksFlagValue(cmd *cobra.Command) (bool, bool) {
 	if !cmd.Flags().Changed(skipVersionChecksFlag) {
-		return false, false
+		return env.IsVarTruthy(skipVersionChecksEnvVar)
 	}
 
 	skipVersionChecks, err := cmd.Flags().GetBool(skipVersionChecksFlag)
 	if err != nil {
 		panic(fmt.Sprintf("internal error: %s flag not registered: %v", skipVersionChecksFlag, err))
 	}
-	return skipVersionChecks, true
+	return skipVersionChecks
 }
