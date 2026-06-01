@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/arm/topo/internal/env"
 	"github.com/arm/topo/internal/health"
 	"github.com/arm/topo/internal/output/printable"
 	"github.com/arm/topo/internal/output/templates"
@@ -76,14 +77,20 @@ func init() {
 }
 
 func resolveSkipVersionChecks(cmd *cobra.Command) bool {
-	skipVersionCheck, err := cmd.Flags().GetBool(skipVersionChecksFlag)
+	if skipVersionChecks, wasArgProvided := getSkipVersionChecksFlagValue(cmd); wasArgProvided {
+		return skipVersionChecks
+	}
+	return env.IsVarTruthy(skipVersionChecksEnvVar)
+}
+
+func getSkipVersionChecksFlagValue(cmd *cobra.Command) (bool, bool) {
+	if !cmd.Flags().Changed(skipVersionChecksFlag) {
+		return false, false
+	}
+
+	skipVersionChecks, err := cmd.Flags().GetBool(skipVersionChecksFlag)
 	if err != nil {
 		panic(fmt.Sprintf("internal error: %s flag not registered: %v", skipVersionChecksFlag, err))
 	}
-
-	if !skipVersionCheck {
-		skipVersionCheck = os.Getenv(skipVersionChecksEnvVar) != ""
-	}
-
-	return skipVersionCheck
+	return skipVersionChecks, true
 }
