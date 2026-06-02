@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPrintPSReport(t *testing.T) {
+func TestPS(t *testing.T) {
 	t.Run("PlainFormat", func(t *testing.T) {
 		t.Run("renders container image, status, processing domain, and address", func(t *testing.T) {
-			toPrint := printable.PrintablePSReport{
+			toPrint := printable.PS{
 				Containers: []deploy.Container{
 					{
 						Image:            "my-app",
@@ -38,7 +38,7 @@ func TestPrintPSReport(t *testing.T) {
 		})
 
 		t.Run("renders multiple containers", func(t *testing.T) {
-			toPrint := printable.PrintablePSReport{
+			toPrint := printable.PS{
 				Containers: []deploy.Container{
 					{Image: "web", ProcessingDomain: "Linux Host"},
 					{Image: "db", ProcessingDomain: "Linux Host"},
@@ -55,7 +55,7 @@ func TestPrintPSReport(t *testing.T) {
 		})
 
 		t.Run("renders empty message when no containers", func(t *testing.T) {
-			toPrint := printable.PrintablePSReport{Containers: nil}
+			toPrint := printable.PS{Containers: nil}
 			var out bytes.Buffer
 
 			err := printable.Print(toPrint, &out, term.Plain)
@@ -67,7 +67,7 @@ func TestPrintPSReport(t *testing.T) {
 
 	t.Run("JSONFormat", func(t *testing.T) {
 		t.Run("renders report as valid JSON with expected fields", func(t *testing.T) {
-			toPrint := printable.PrintablePSReport{
+			toPrint := printable.PS{
 				Containers: []deploy.Container{
 					{
 						Image:            "my-app",
@@ -89,7 +89,7 @@ func TestPrintPSReport(t *testing.T) {
 		})
 
 		t.Run("renders empty containers as empty array", func(t *testing.T) {
-			toPrint := printable.PrintablePSReport{
+			toPrint := printable.PS{
 				Containers: []deploy.Container{},
 			}
 			var out bytes.Buffer

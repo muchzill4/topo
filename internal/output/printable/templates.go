@@ -1,38 +1,62 @@
 package printable
 
 import (
-	"strings"
+	"bytes"
+	"encoding/json"
 	"text/template"
 
 	"github.com/arm/topo/internal/catalog"
-	"github.com/arm/topo/internal/output/term"
 )
 
-func getFuncMap(isTTY bool) template.FuncMap {
-	f := template.FuncMap{
-		"join":              strings.Join,
-		"wrap":              func(s string) string { return term.WrapText(s, 80, 2) },
-		"cyan":              func(s string) string { return s },
-		"blue":              func(s string) string { return s },
-		"yellow":            func(s string) string { return s },
-		"compatibilityMark": plainCompatibilityMark,
-	}
+type Templates []catalog.RepoWithCompatibility
 
-	if isTTY {
-		f["cyan"] = func(s string) string { return term.Color(term.Cyan, s) }
-		f["blue"] = func(s string) string { return term.Color(term.Blue, s) }
-		f["yellow"] = func(s string) string { return term.Color(term.Yellow, s) }
-	}
+const repoTemplate = `
+{{- define "featuresRow" -}}
+{{- if .Features }}
+  Features: {{ join .Features ", " }}
+{{- end }}
+{{- end }}
 
-	return f
+{{- define "descriptionRow" -}}
+{{- if .Description }}
+{{ wrap .Description }}
+{{- end }}
+{{- end }}
+
+{{- define "repoRow" }}
+{{- if .Compatibility }}{{ compatibilityMark .Compatibility }} {{ end }}{{ cyan .Name }} | {{ blue .URL }} | {{ yellow .Ref }}
+{{- template "featuresRow" . }}
+{{- template "descriptionRow" . }}
+{{- end }}
+
+{{- define "repoList" }}
+{{- range . }}
+{{- template "repoRow" . }}
+
+{{ end }}
+{{- end }}`
+
+func (r Templates) AsJSON() (string, error) {
+	b, err := json.MarshalIndent(r, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
-func plainCompatibilityMark(c catalog.CompatibilityStatus) string {
-	if c == catalog.CompatibilitySupported {
-		return "✅"
+func (r Templates) AsPlain(isTTY bool) (string, error) {
+	funcMap := getFuncMap(isTTY)
+	tmpl, err := template.
+		New("templatesList").
+		Funcs(funcMap).
+		Parse(repoTemplate)
+	if err != nil {
+		return "", err
 	}
-	if c == catalog.CompatibilityUnsupported {
-		return "❌"
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, "repoList", r); err != nil {
+		return "", err
 	}
-	return ""
+
+	return buf.String(), nil
 }

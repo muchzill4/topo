@@ -48,7 +48,7 @@ var templatesCmd = &cobra.Command{
 		}
 
 		reposWithCompatibility := catalog.AnnotateCompatibility(profile, repos)
-		return printable.Print(printable.RepoCollection(reposWithCompatibility), os.Stdout, outputFormat)
+		return printable.Print(printable.Templates(reposWithCompatibility), os.Stdout, outputFormat)
 	},
 }
 
