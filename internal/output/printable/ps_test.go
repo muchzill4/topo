@@ -1,4 +1,4 @@
-package templates_test
+package printable_test
 
 import (
 	"bytes"
@@ -7,7 +7,6 @@ import (
 
 	"github.com/arm/topo/internal/deploy"
 	"github.com/arm/topo/internal/output/printable"
-	"github.com/arm/topo/internal/output/templates"
 	"github.com/arm/topo/internal/output/term"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +15,7 @@ import (
 func TestPrintPSReport(t *testing.T) {
 	t.Run("PlainFormat", func(t *testing.T) {
 		t.Run("renders container image, status, processing domain, and address", func(t *testing.T) {
-			toPrint := templates.PrintablePSReport{
+			toPrint := printable.PrintablePSReport{
 				Containers: []deploy.Container{
 					{
 						Image:            "my-app",
@@ -39,7 +38,7 @@ func TestPrintPSReport(t *testing.T) {
 		})
 
 		t.Run("renders multiple containers", func(t *testing.T) {
-			toPrint := templates.PrintablePSReport{
+			toPrint := printable.PrintablePSReport{
 				Containers: []deploy.Container{
 					{Image: "web", ProcessingDomain: "Linux Host"},
 					{Image: "db", ProcessingDomain: "Linux Host"},
@@ -56,7 +55,7 @@ func TestPrintPSReport(t *testing.T) {
 		})
 
 		t.Run("renders empty message when no containers", func(t *testing.T) {
-			toPrint := templates.PrintablePSReport{Containers: nil}
+			toPrint := printable.PrintablePSReport{Containers: nil}
 			var out bytes.Buffer
 
 			err := printable.Print(toPrint, &out, term.Plain)
@@ -68,7 +67,7 @@ func TestPrintPSReport(t *testing.T) {
 
 	t.Run("JSONFormat", func(t *testing.T) {
 		t.Run("renders report as valid JSON with expected fields", func(t *testing.T) {
-			toPrint := templates.PrintablePSReport{
+			toPrint := printable.PrintablePSReport{
 				Containers: []deploy.Container{
 					{
 						Image:            "my-app",
@@ -90,7 +89,7 @@ func TestPrintPSReport(t *testing.T) {
 		})
 
 		t.Run("renders empty containers as empty array", func(t *testing.T) {
-			toPrint := templates.PrintablePSReport{
+			toPrint := printable.PrintablePSReport{
 				Containers: []deploy.Container{},
 			}
 			var out bytes.Buffer

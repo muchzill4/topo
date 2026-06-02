@@ -1,11 +1,10 @@
-package templates_test
+package printable_test
 
 import (
 	"bytes"
 	"testing"
 
 	"github.com/arm/topo/internal/output/printable"
-	"github.com/arm/topo/internal/output/templates"
 	"github.com/arm/topo/internal/output/term"
 	"github.com/arm/topo/internal/probe"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +23,7 @@ func TestPrintTargetDescription(t *testing.T) {
 				},
 				TotalMemoryKb: 16384,
 			}
-			toPrint := templates.PrintableTargetDescription{HardwareProfile: profile}
+			toPrint := printable.PrintableTargetDescription{HardwareProfile: profile}
 			var out bytes.Buffer
 
 			err := printable.Print(toPrint, &out, term.Plain)
@@ -47,7 +46,7 @@ totalMemoryKb: 16384
 
 	t.Run("JSONFormat", func(t *testing.T) {
 		t.Run("renders valid JSON with all fields", func(t *testing.T) {
-			toPrint := templates.PrintableTargetDescription{
+			toPrint := printable.PrintableTargetDescription{
 				HardwareProfile: probe.HardwareProfile{
 					HostProcessors: []probe.HostProcessor{
 						{Model: "Cortex-A55", Cores: 4, Features: []string{"asimd", "sve"}},

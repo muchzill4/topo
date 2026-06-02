@@ -5,7 +5,6 @@ import (
 
 	"github.com/arm/topo/internal/install"
 	"github.com/arm/topo/internal/output/printable"
-	"github.com/arm/topo/internal/output/templates"
 	"github.com/arm/topo/internal/runner"
 	"github.com/arm/topo/internal/ssh"
 	"github.com/spf13/cobra"
@@ -46,7 +45,7 @@ func installRemoteprocRuntime(targetDest ssh.Destination) (printable.Printable, 
 	if err != nil {
 		return nil, err
 	}
-	return templates.InstallResults(results), nil
+	return printable.InstallResults(results), nil
 }
 
 func init() {

@@ -6,7 +6,6 @@ import (
 
 	"github.com/arm/topo/internal/catalog"
 	"github.com/arm/topo/internal/output/printable"
-	"github.com/arm/topo/internal/output/templates"
 	"github.com/arm/topo/internal/probe"
 	"github.com/arm/topo/internal/runner"
 	"github.com/arm/topo/internal/ssh"
@@ -49,7 +48,7 @@ var templatesCmd = &cobra.Command{
 		}
 
 		reposWithCompatibility := catalog.AnnotateCompatibility(profile, repos)
-		return printable.Print(templates.RepoCollection(reposWithCompatibility), os.Stdout, outputFormat)
+		return printable.Print(printable.RepoCollection(reposWithCompatibility), os.Stdout, outputFormat)
 	},
 }
 

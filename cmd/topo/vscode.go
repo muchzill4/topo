@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/arm/topo/internal/output/printable"
-	"github.com/arm/topo/internal/output/templates"
 	"github.com/arm/topo/internal/probe"
 	"github.com/arm/topo/internal/runner"
 	"github.com/arm/topo/internal/ssh"
@@ -46,7 +45,7 @@ var describeCmd = &cobra.Command{
 			return err
 		}
 
-		toPrint := templates.PrintableTargetDescription{HardwareProfile: hwProfile}
+		toPrint := printable.PrintableTargetDescription{HardwareProfile: hwProfile}
 		return printable.Print(toPrint, os.Stdout, outputFormat)
 	},
 }

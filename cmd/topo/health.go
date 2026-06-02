@@ -7,7 +7,6 @@ import (
 	"github.com/arm/topo/internal/env"
 	"github.com/arm/topo/internal/health"
 	"github.com/arm/topo/internal/output/printable"
-	"github.com/arm/topo/internal/output/templates"
 	"github.com/arm/topo/internal/output/term"
 	"github.com/arm/topo/internal/ssh"
 	"github.com/spf13/cobra"
@@ -41,7 +40,7 @@ var healthCmd = &cobra.Command{
 			spinner = term.StartSpinner(os.Stderr, "Checking health...")
 		}
 
-		toPrint := templates.PrintableHealthReport{
+		toPrint := printable.PrintableHealthReport{
 			Host: health.CheckHost(health.CheckHostOptions{SkipVersionChecks: skipVersionCheck}),
 		}
 
