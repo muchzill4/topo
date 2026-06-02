@@ -1,4 +1,4 @@
-package templates_test
+package printable_test
 
 import (
 	"bytes"
@@ -7,16 +7,15 @@ import (
 
 	"github.com/arm/topo/internal/health"
 	"github.com/arm/topo/internal/output/printable"
-	"github.com/arm/topo/internal/output/templates"
 	"github.com/arm/topo/internal/output/term"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestHealthReport(t *testing.T) {
+func TestPrintHealthReport(t *testing.T) {
 	t.Run("PlainFormat", func(t *testing.T) {
-		t.Run("it renders the HealthReportcies", func(t *testing.T) {
-			toPrint := templates.PrintableHealthReport{
+		t.Run("it renders the healthy host dependencies", func(t *testing.T) {
+			toPrint := printable.HealthReport{
 				Host: health.HostReport{
 					Dependencies: []health.HealthCheck{
 						{
@@ -35,8 +34,8 @@ func TestHealthReport(t *testing.T) {
 			assert.Contains(t, out.String(), "✅")
 		})
 
-		t.Run("it renders the HealthReportcies fail the health check", func(t *testing.T) {
-			toPrint := templates.PrintableHealthReport{
+		t.Run("it renders the details when dependencies fail the health check", func(t *testing.T) {
+			toPrint := printable.HealthReport{
 				Host: health.HostReport{
 					Dependencies: []health.HealthCheck{
 						{
@@ -57,8 +56,8 @@ func TestHealthReport(t *testing.T) {
 			assert.Contains(t, out.String(), "docker not found on path")
 		})
 
-		t.Run("it renders a waHealthReportg checks", func(t *testing.T) {
-			toPrint := templates.PrintableHealthReport{
+		t.Run("it renders a warning icon for warning checks", func(t *testing.T) {
+			toPrint := printable.HealthReport{
 				Target: &health.TargetReport{
 					Connectivity: health.HealthCheck{
 						Name:   "Connected",
@@ -80,8 +79,8 @@ func TestHealthReport(t *testing.T) {
 			assert.Contains(t, out.String(), "no remoteproc devices found")
 		})
 
-		t.Run("it renders an iHealthReportcks", func(t *testing.T) {
-			toPrint := templates.PrintableHealthReport{
+		t.Run("it renders an info icon for info checks", func(t *testing.T) {
+			toPrint := printable.HealthReport{
 				Target: &health.TargetReport{
 					Connectivity: health.HealthCheck{
 						Name:   "Connected",
@@ -103,8 +102,8 @@ func TestHealthReport(t *testing.T) {
 			assert.Contains(t, out.String(), "no remoteproc devices found")
 		})
 
-		t.Run("it renders connHealthReportc(t *testing.T) {
-			toPrint := templates.PrintableHealthReport{
+		t.Run("it renders connection failures", func(t *testing.T) {
+			toPrint := printable.HealthReport{
 				Target: &health.TargetReport{
 					Connectivity: health.HealthCheck{
 						Name:   "Connected",
@@ -121,8 +120,8 @@ func TestHealthReport(t *testing.T) {
 			assert.Contains(t, out.String(), "❌")
 		})
 
-		t.Run("it renders the HealthReportfunc(t *testing.T) {
-			toPrint := templates.PrintableHealthReport{
+		t.Run("it renders the target destination", func(t *testing.T) {
+			toPrint := printable.HealthReport{
 				Target: &health.TargetReport{Destination: "ssh://user@my-target"},
 			}
 			var out bytes.Buffer
@@ -133,8 +132,8 @@ func TestHealthReport(t *testing.T) {
 			assert.Contains(t, out.String(), "Destination: ssh://user@my-target")
 		})
 
-		t.Run("when not connecHealthReporter cpu features", func(t *testing.T) {
-			toPrint := templates.PrintableHealthReport{
+		t.Run("when not connected, it does not render cpu features", func(t *testing.T) {
+			toPrint := printable.HealthReport{
 				Target: &health.TargetReport{
 					Connectivity: health.HealthCheck{
 						Name:   "Connected",
@@ -150,8 +149,8 @@ func TestHealthReport(t *testing.T) {
 			assert.NotContains(t, out.String(), "Features (Linux Host)")
 		})
 
-		t.Run("it renders the HealthReport has a fix", func(t *testing.T) {
-			toPrint := templates.PrintableHealthReport{
+		t.Run("it renders the fix hint when a check has a fix", func(t *testing.T) {
+			toPrint := printable.HealthReport{
 				Host: health.HostReport{
 					Dependencies: []health.HealthCheck{
 						{
@@ -176,8 +175,8 @@ func TestHealthReport(t *testing.T) {
 		})
 
 		t.Run("when no target is specified, prints the hint", func(t *testing.T) {
-			hint := "Need to workHealthReport
-			toPrint := templates.PrintableHealthReport{TargetHint: hint}
+			hint := "Need to work on your aim"
+			toPrint := printable.HealthReport{TargetHint: hint}
 			var out bytes.Buffer
 
 			err := printable.Print(toPrint, &out, term.Plain)
@@ -189,8 +188,8 @@ func TestHealthReport(t *testing.T) {
 	})
 
 	t.Run("JSONFormat", func(t *testing.T) {
-		t.Run("renders report HealthReportpected fields", func(t *testing.T) {
-			toPrint := templates.PrintableHealthReport{
+		t.Run("renders report as valid JSON with expected fields", func(t *testing.T) {
+			toPrint := printable.HealthReport{
 				Host: health.HostReport{
 					Dependencies: []health.HealthCheck{
 						{
