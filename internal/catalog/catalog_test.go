@@ -76,7 +76,7 @@ func TestListTemplatesFromURL(t *testing.T) {
 		_, err := catalog.ListTemplatesFromURL(context.Background(), url)
 
 		require.Error(t, err)
-		assert.ErrorContains(t, err, "failed to unmarshal templates")
+		assert.ErrorContains(t, err, "failed to unmarshal catalog")
 	})
 
 	t.Run("errors for unknown fields", func(t *testing.T) {
