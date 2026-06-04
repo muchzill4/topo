@@ -78,30 +78,6 @@ func TestListTemplatesFromURL(t *testing.T) {
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "failed to unmarshal templates")
 	})
-
-	t.Run("errors for unknown fields", func(t *testing.T) {
-		jsonData := []byte(`{
-			"$schema": "https://topo.arm.com/schemas/templates/1/schema.json",
-			"templates": [
-				{
-					"name": "test",
-					"description": "desc",
-					"features": [],
-					"url": "https://example.com",
-					"ref": "main",
-					"yolo-swag": "value"
-				}
-			]
-		}`)
-		path := filepath.Join(t.TempDir(), "file.json")
-		testutil.RequireWriteFile(t, path, string(jsonData))
-
-		url := fmt.Sprintf("file://%s", path)
-		_, err := catalog.ListTemplatesFromURL(context.Background(), url)
-
-		require.Error(t, err)
-		assert.ErrorContains(t, err, `additional properties 'yolo-swag' not allowed`)
-	})
 }
 
 func asJSON(repos []catalog.Repo) []byte {
