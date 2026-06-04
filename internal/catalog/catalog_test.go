@@ -44,7 +44,7 @@ func TestListTemplatesFromURL(t *testing.T) {
 		assert.Equal(t, repos, got)
 	})
 
-	t.Run("errors when template json doesn't validate against schema", func(t *testing.T) {
+	t.Run("errors when payload doesn't validate against schema", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "file.json")
 		repos := []catalog.Repo{{Name: "aloha"}}
 		testutil.RequireWriteFile(t, path, string(asJSON(repos)))
