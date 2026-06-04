@@ -82,10 +82,8 @@ func TestListTemplatesFromURL(t *testing.T) {
 
 func asJSON(repos []catalog.Repo) []byte {
 	data, err := json.Marshal(struct {
-		Schema    string         `json:"$schema"`
 		Templates []catalog.Repo `json:"templates"`
 	}{
-		Schema:    "https://topo.arm.com/schemas/templates/1/schema.json",
 		Templates: repos,
 	})
 	if err != nil {
