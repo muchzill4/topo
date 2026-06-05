@@ -16,10 +16,10 @@ import (
 )
 
 //go:embed data/catalog.json
-var templatesJSON []byte
+var catalogJSON []byte
 
 //go:embed data/catalog.schema.json
-var templatesSchemaJSON []byte
+var catalogSchemaJSON []byte
 
 type catalogDocument struct {
 	Schema    string     `json:"$schema,omitempty"`
@@ -36,7 +36,7 @@ type Template struct {
 }
 
 func ListBuiltinTemplates() ([]Template, error) {
-	return parseTemplates(templatesJSON)
+	return parseTemplates(catalogJSON)
 }
 
 func ListTemplatesFromURL(ctx context.Context, url string) ([]Template, error) {
@@ -64,7 +64,7 @@ func validateAgainstSchema(b []byte) error {
 	const templatesSchemaURL = "https://raw.githubusercontent.com/arm/topo/main/internal/catalog/data/catalog.schema.json"
 
 	compiler := jsonschema.NewCompiler()
-	schemaDoc, err := jsonschema.UnmarshalJSON(bytes.NewReader(templatesSchemaJSON))
+	schemaDoc, err := jsonschema.UnmarshalJSON(bytes.NewReader(catalogSchemaJSON))
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
