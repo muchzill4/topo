@@ -1,5 +1,5 @@
 {
-  "$schema": "https://topo.arm.com/schemas/templates/1/schema.json",
+  "$schema": "https://raw.githubusercontent.com/arm/topo/main/internal/catalog/data/catalog.schema.json",
   "templates": [
     {
       "name": "Hello World",
