@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://topo.arm.com/schemas/templates/1/schema.json",
   "title": "Topo Templates Catalog",
-  "description": "A catalog of Topo template repositories.",
+  "description": "A catalog of Topo Template repositories.",
   "type": "object",
   "additionalProperties": false,
   "required": ["templates"],
