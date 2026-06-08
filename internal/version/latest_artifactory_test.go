@@ -37,19 +37,6 @@ const artifactoryHTML = `<!DOCTYPE html>
 </pre>
 <hr/><address style="font-size:small;">Artifactory Online Server</address></body></html>`
 
-func createTestServerWithBody(t *testing.T, body string) *httptest.Server {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(body))
-	}))
-
-	t.Cleanup(func() {
-		srv.Close()
-	})
-
-	return srv
-}
-
 func TestFetchLatestArtifactory(t *testing.T) {
 	t.Run("can reach real artifactory index page", func(t *testing.T) {
 		_, err := version.FetchLatestArtifactory(context.Background(), version.ArtifactoryBaseURL)
