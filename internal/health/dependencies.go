@@ -51,6 +51,11 @@ var HostRequiredDependencies = []Dependency{
 					return version.Version, nil
 				}
 
+				binPath, err := upgrade.CurrentBinaryPath()
+				if err == nil && upgrade.IsBinaryManagedByHomebrew(binPath) {
+					return version.FetchLatestHomebrew(ctx, version.HomebrewFormulaURL)
+				}
+
 				return version.FetchLatestArtifactory(ctx, version.ArtifactoryBaseURL)
 			},
 			CurrentVersion: version.Version,
