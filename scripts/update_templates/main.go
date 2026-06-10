@@ -1,80 +1,67 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
+	"log"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
-const outputJSONPath = "internal/catalog/data/catalog.json"
-
-var repoList = []string{
-	"Arm-Examples/topo-welcome#main",
-	"Arm-Examples/topo-lightbulb-moment#main",
-	"Arm-Examples/topo-cpu-ai-chat#main",
-	"Arm-Examples/topo-simd-visual-benchmark#main",
-}
-
-type Template struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Features    []string       `json:"features"`
-	Args        map[string]Arg `json:"args,omitempty"`
-	URL         string         `json:"url"`
-	Ref         string         `json:"ref"`
-}
-
-type Arg struct {
-	Description string         `json:"description,omitempty"`
-	Required    bool           `json:"required,omitempty"`
-	Default     string         `json:"default,omitempty"`
-	Example     string         `json:"example,omitempty"`
-	Hints       map[string]any `json:"hints,omitempty"`
-}
-
 func main() {
-	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
-		fmt.Fprintln(os.Stderr, "GITHUB_TOKEN is not set: create a personal access token and set the envvar")
-		os.Exit(1)
+	githubToken := os.Getenv("GITHUB_TOKEN")
+	if githubToken == "" {
+		log.Println("⚠️ GITHUB_TOKEN is not set: you might get rate limited")
 	}
 
-	client := &http.Client{}
+	githubClient := NewGitHubClient(githubToken)
 
 	var templates []Template
-
-	seenNames := make(map[string]struct{})
-
-	for _, spec := range repoList {
-		repo, ref := parseRepoSpec(spec)
-
-		composeBytes, err := fetchComposeFile(client, token, spec)
+	for _, source := range ListGitHubSources(strings.NewReader(sourcesJSON)) {
+		template, err := FetchTemplate(githubClient, source)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "skipping %s: %v\n", spec, err)
+			log.Printf("failed to fetch %s (%v)\n", source, err)
 			continue
 		}
-
-		repoURL := fmt.Sprintf("https://github.com/%s.git", repo)
-
-		tmpl, err := BuildTemplate(repoURL, composeBytes)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "skipping %s: %v\n", spec, err)
-			continue
-		}
-		tmpl.Ref = ref
-
-		if _, exists := seenNames[tmpl.Name]; exists {
-			panic(fmt.Sprintf("duplicate template name %q from %s; skipping\n", tmpl.Name, spec))
-		}
-
-		seenNames[tmpl.Name] = struct{}{}
-		templates = append(templates, tmpl)
+		log.Printf("fetched %s\n", source)
+		templates = append(templates, template)
 	}
 
-	if err := WriteTemplates(outputJSONPath, templates); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to write templates: %v\n", err)
+	outputPath, err := catalogOutputPath()
+	if err != nil {
+		log.Fatalf("failed to find catalog output path: %v\n", err)
+	}
+
+	if err := WriteTemplates(outputPath, templates); err != nil {
+		log.Printf("failed to write templates: %v\n", err)
 		os.Exit(1)
 	}
+	log.Printf("written catalog to %s\n", outputPath)
+}
 
-	fmt.Printf("Wrote %s\n", outputJSONPath)
+func catalogOutputPath() (string, error) {
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(repoRoot, "internal", "catalog", "data", "catalog.json"), nil
+}
+
+func findRepoRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", os.ErrNotExist
+		}
+		dir = parent
+	}
 }
