@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 )
 
-const relativeCatalogOutputPath = "internal/catalog/data/catalog.json"
-const relativeCatalogSchemaPath = "internal/catalog/data/catalog.schema.json"
-
-const catalogSchemaURL = "https://raw.githubusercontent.com/arm/topo/main/internal/catalog/data/catalog.schema.json"
+const (
+	relativeCatalogOutputPath = "internal/catalog/data/catalog.json"
+	catalogSchemaURL          = "https://raw.githubusercontent.com/arm/topo/main/internal/catalog/data/catalog.schema.json"
+)
 
 type CatalogDocument struct {
 	Schema    string     `json:"$schema"`
@@ -66,13 +66,4 @@ func createCatalogOutput() (*os.File, string, error) {
 	}
 
 	return file, path, nil
-}
-
-func readCatalogSchema() ([]byte, error) {
-	repoRoot, err := findModuleRoot()
-	if err != nil {
-		return nil, err
-	}
-
-	return os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(relativeCatalogSchemaPath)))
 }
