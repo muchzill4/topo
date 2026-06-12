@@ -16,10 +16,6 @@ type Template struct {
 	Ref string `json:"ref"`
 }
 
-func (t Template) SourceID() TemplateSourceID {
-	return TemplateSourceID(t.URL)
-}
-
 type XTopo struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
@@ -59,4 +55,8 @@ func FetchTemplate(client GitHubClient, source GitHubSource) (Template, error) {
 		return Template{}, err
 	}
 	return NewTemplate(source, bytes.NewReader(yamlBytes))
+}
+
+func (t Template) SourceID() TemplateSourceID {
+	return TemplateSourceID(t.URL)
 }
