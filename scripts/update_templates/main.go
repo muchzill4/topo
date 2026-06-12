@@ -24,6 +24,10 @@ func main() {
 	}
 
 	plan := PlanUpdate(sources, catalog.Templates)
+	if !plan.HasChanges() {
+		log.Println("catalog already up to date")
+		return
+	}
 	log.Printf(
 		"template update plan:\n  🆕 %d to add\n  🔄 %d to update\n  🗑️ %d to remove\n  ☑️ %d unchanged",
 		len(plan.ToAdd),

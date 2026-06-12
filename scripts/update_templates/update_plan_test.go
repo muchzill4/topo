@@ -30,3 +30,47 @@ func TestPlanUpdate(t *testing.T) {
 		assert.Equal(t, want, got)
 	})
 }
+
+func TestUpdatePlan(t *testing.T) {
+	t.Run("HasChanges", func(t *testing.T) {
+		t.Run("returns false when only templates are unchanged", func(t *testing.T) {
+			plan := UpdatePlan{
+				Unchanged: []Template{{URL: "https://github.com/example/unchanged.git", Ref: "same-sha"}},
+			}
+
+			got := plan.HasChanges()
+
+			assert.False(t, got)
+		})
+
+		t.Run("returns true when templates will be added", func(t *testing.T) {
+			plan := UpdatePlan{
+				ToAdd: []GitHubSource{{Repo: "example/added", SHA: "added-sha"}},
+			}
+
+			got := plan.HasChanges()
+
+			assert.True(t, got)
+		})
+
+		t.Run("returns true when templates will be updated", func(t *testing.T) {
+			plan := UpdatePlan{
+				ToUpdate: []GitHubSource{{Repo: "example/updated", SHA: "new-sha"}},
+			}
+
+			got := plan.HasChanges()
+
+			assert.True(t, got)
+		})
+
+		t.Run("returns true when templates will be removed", func(t *testing.T) {
+			plan := UpdatePlan{
+				ToRemove: []Template{{URL: "https://github.com/example/removed.git", Ref: "removed-sha"}},
+			}
+
+			got := plan.HasChanges()
+
+			assert.True(t, got)
+		})
+	})
+}

@@ -7,6 +7,10 @@ type UpdatePlan struct {
 	Unchanged []Template
 }
 
+func (p UpdatePlan) HasChanges() bool {
+	return len(p.ToAdd) > 0 || len(p.ToUpdate) > 0 || len(p.ToRemove) > 0
+}
+
 func PlanUpdate(sources []GitHubSource, current []Template) UpdatePlan {
 	currentByID := make(map[TemplateSourceID]Template, len(current))
 	for _, template := range current {
