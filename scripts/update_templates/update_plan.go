@@ -7,24 +7,20 @@ type UpdatePlan struct {
 	Unchanged []Template
 }
 
-// TODO: codify the fact CloneURL and URL are the foreign key id
-
 func PlanUpdate(sources []GitHubSource, current []Template) UpdatePlan {
-	currentByURL := make(map[string]Template, len(current))
+	currentByID := make(map[TemplateSourceID]Template, len(current))
 	for _, template := range current {
-		currentByURL[template.URL] = template
+		currentByID[template.SourceID()] = template
 	}
 
-	sourceByURL := make(map[string]GitHubSource, len(sources))
+	sourceByID := make(map[TemplateSourceID]GitHubSource, len(sources))
 	for _, source := range sources {
-		url := source.CloneURL()
-		sourceByURL[url] = source
+		sourceByID[source.ID()] = source
 	}
 
 	var plan UpdatePlan
 	for _, source := range sources {
-		url := source.CloneURL()
-		template, exists := currentByURL[url]
+		template, exists := currentByID[source.ID()]
 		if !exists {
 			plan.ToAdd = append(plan.ToAdd, source)
 			continue
@@ -39,7 +35,7 @@ func PlanUpdate(sources []GitHubSource, current []Template) UpdatePlan {
 	}
 
 	for _, template := range current {
-		if _, exists := sourceByURL[template.URL]; !exists {
+		if _, exists := sourceByID[template.SourceID()]; !exists {
 			plan.ToRemove = append(plan.ToRemove, template)
 		}
 	}

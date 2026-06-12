@@ -18,7 +18,11 @@ func (s GitHubSource) String() string {
 	return fmt.Sprintf("%s@%s", s.Repo, s.SHA)
 }
 
-func (s GitHubSource) CloneURL() string {
+func (s GitHubSource) ID() TemplateSourceID {
+	return TemplateSourceID(s.URL())
+}
+
+func (s GitHubSource) URL() string {
 	return fmt.Sprintf("https://github.com/%s.git", s.Repo)
 }
 
