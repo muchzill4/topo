@@ -25,7 +25,7 @@ func main() {
 
 	plan := PlanUpdate(sources, catalog.Templates)
 	log.Printf(
-		"template update plan: %d add, %d update, %d remove, %d unchanged",
+		"template update plan:\n  🆕 %d to add\n  🔄 %d to update\n  🗑️ %d to remove\n  ☑️ %d unchanged",
 		len(plan.ToAdd),
 		len(plan.ToUpdate),
 		len(plan.ToRemove),
