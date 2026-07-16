@@ -1,6 +1,7 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -25,7 +26,7 @@ func (c *RegistryTunnelExposureCheck) Description() string {
 	return "Check registry tunnel is not exposed on remote network"
 }
 
-func (c *RegistryTunnelExposureCheck) Run(w io.Writer) error {
+func (c *RegistryTunnelExposureCheck) Run(_ context.Context, w io.Writer) error {
 	if c.TargetDest.IsLocalhost() {
 		return nil
 	}

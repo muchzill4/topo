@@ -33,13 +33,13 @@ func (kt *PubKeyTransfer) Description() string {
 	return "Transfer public key to target and set it as an authorized key"
 }
 
-func (kt *PubKeyTransfer) Run(outputWriter io.Writer) error {
+func (kt *PubKeyTransfer) Run(ctx context.Context, outputWriter io.Writer) error {
 	pubKey, err := os.ReadFile(kt.pubKeyPath)
 	if err != nil {
 		return fmt.Errorf("failed to read public key %s: %w", kt.pubKeyPath, err)
 	}
 
-	cmdStdout, _, err := kt.r.RunWithStdinAndArgs(context.TODO(), remoteAuthorizedKeysCommand, pubKey, passwordAuthArgs...)
+	cmdStdout, _, err := kt.r.RunWithStdinAndArgs(ctx, remoteAuthorizedKeysCommand, pubKey, passwordAuthArgs...)
 	if err != nil {
 		return fmt.Errorf("failed to transfer public key to target: %w", err)
 	}

@@ -2,6 +2,7 @@ package operation
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -29,31 +30,31 @@ func (r *RegistryTransfer) Description() string {
 	return "Transfer via registry"
 }
 
-func (r *RegistryTransfer) Run(w io.Writer) error {
+func (r *RegistryTransfer) Run(ctx context.Context, w io.Writer) error {
 	images, err := compose.ImageNames(r.composeFile)
 	if err != nil {
 		return err
 	}
 	for _, image := range images {
-		if err := r.transferImage(w, image); err != nil {
+		if err := r.transferImage(ctx, w, image); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *RegistryTransfer) transferImage(w io.Writer, image string) error {
+func (r *RegistryTransfer) transferImage(ctx context.Context, w io.Writer, image string) error {
 	tag := fmt.Sprintf("localhost:%s/%s", r.port, image)
 
-	tagCmd := command.Docker(r.source, "tag", image, tag)
+	tagCmd := command.Docker(ctx, r.source, "tag", image, tag)
 	if err := runCmd(tagCmd, w); err != nil {
 		return err
 	}
 
-	pushCmd := command.Docker(r.source, "push", tag)
+	pushCmd := command.Docker(ctx, r.source, "push", tag)
 	pushOutput, err := runCmdCaptureOutput(pushCmd, w)
 	if err != nil {
-		if hint := r.checkRegistryPortMismatch(); hint != "" {
+		if hint := r.checkRegistryPortMismatch(ctx); hint != "" {
 			return fmt.Errorf("%s\n%s", err, hint)
 		}
 		return fmt.Errorf("failed to execute %s: %w", strings.Join(pushCmd.Args, " "), err)
@@ -65,12 +66,12 @@ func (r *RegistryTransfer) transferImage(w io.Writer, image string) error {
 	}
 
 	digestRef := fmt.Sprintf("localhost:%s/%s@%s", r.port, image, digest)
-	pullCmd := command.Docker(r.host, "pull", digestRef)
+	pullCmd := command.Docker(ctx, r.host, "pull", digestRef)
 	if err := runCmd(pullCmd, w); err != nil {
 		return err
 	}
 
-	retagCmd := command.Docker(r.host, "tag", digestRef, image)
+	retagCmd := command.Docker(ctx, r.host, "tag", digestRef, image)
 	if err := runCmd(retagCmd, w); err != nil {
 		return err
 	}
@@ -103,8 +104,8 @@ func ParseDigestFromPushOutput(output string) (string, error) {
 	return match[1], nil
 }
 
-func (r *RegistryTransfer) checkRegistryPortMismatch() string {
-	cmd := command.Docker(command.LocalHost, "port", RegistryContainerName, "5000")
+func (r *RegistryTransfer) checkRegistryPortMismatch(ctx context.Context) string {
+	cmd := command.Docker(ctx, command.LocalHost, "port", RegistryContainerName, "5000")
 	out, err := cmd.Output()
 	if err != nil {
 		return ""

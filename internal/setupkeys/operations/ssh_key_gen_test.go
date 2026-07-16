@@ -2,6 +2,7 @@ package operations_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,13 +17,13 @@ import (
 func TestSSHKeyGenRun(t *testing.T) {
 	keyPath := filepath.Join(t.TempDir(), "keys", "id_ed25519_test")
 	opts := operations.SSHKeyGenOptions{
-		WithMockKeyGen: func(keyType, keyPath, targetHost string) *exec.Cmd {
+		WithMockKeyGen: func(_ context.Context, keyType, keyPath, targetHost string) *exec.Cmd {
 			return testutil.CmdWithOutput("ssh-keygen invoked", 0)
 		},
 	}
 	op := operations.NewSSHKeyGen("Generate SSH key pair", ssh.NewDestination("user@example.com"), "ed25519", keyPath, opts)
 	var buf bytes.Buffer
-	require.NoError(t, op.Run(&buf))
+	require.NoError(t, op.Run(context.Background(), &buf))
 	require.Contains(t, buf.String(), "ssh-keygen invoked")
 	_, err := os.Stat(filepath.Dir(keyPath))
 	require.NoError(t, err, "expected key directory to be created")

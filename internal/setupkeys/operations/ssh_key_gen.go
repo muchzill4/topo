@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -11,7 +12,7 @@ import (
 	"github.com/arm/topo/internal/ssh"
 )
 
-type execSSHKeyGen func(keyType string, keyPath string, targetHost string) *exec.Cmd
+type execSSHKeyGen func(ctx context.Context, keyType string, keyPath string, targetHost string) *exec.Cmd
 
 type SSHKeyGen struct {
 	description string
@@ -44,19 +45,19 @@ func (kg *SSHKeyGen) Description() string {
 	return kg.description
 }
 
-func (kg *SSHKeyGen) Run(cmdOutput io.Writer) error {
+func (kg *SSHKeyGen) Run(ctx context.Context, cmdOutput io.Writer) error {
 	dir := filepath.Dir(kg.keyPath)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("failed to create %s: %w", dir, err)
 	}
 
-	cmd := kg.buildCommand()
+	cmd := kg.buildCommand(ctx)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = cmdOutput
 	cmd.Stderr = cmdOutput
 	return cmd.Run()
 }
 
-func (kg *SSHKeyGen) buildCommand() *exec.Cmd {
-	return kg.exec(kg.keyType, kg.keyPath, kg.dest.String())
+func (kg *SSHKeyGen) buildCommand(ctx context.Context) *exec.Cmd {
+	return kg.exec(ctx, kg.keyType, kg.keyPath, kg.dest.String())
 }

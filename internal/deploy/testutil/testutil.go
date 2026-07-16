@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os/exec"
 	"testing"
@@ -36,7 +37,7 @@ func TestProjectName(t *testing.T) string {
 
 func RequireImageExists(t *testing.T, h command.Host, imageName string) {
 	t.Helper()
-	inspectCmd := command.Docker(h, "image", "inspect", imageName)
+	inspectCmd := command.Docker(context.Background(), h, "image", "inspect", imageName)
 	output, err := inspectCmd.CombinedOutput()
 	require.NoError(t, err, "image %s doesn't exist: %s output: %s", imageName, command.String(inspectCmd), string(output))
 }
@@ -47,14 +48,14 @@ func BuildMinimalImage(t *testing.T, h command.Host, imageName string) {
 FROM alpine:latest
 CMD ["tail", "-f", "/dev/null"]
 `
-	buildCmd := command.Docker(h, "build", "-t", imageName, "-")
+	buildCmd := command.Docker(context.Background(), h, "build", "-t", imageName, "-")
 	buildCmd.Stdin = bytes.NewBufferString(dockerfileContent)
 	output, err := buildCmd.CombinedOutput()
 	require.NoError(t, err, "failed to build image %s: %s output: %s", imageName, command.String(buildCmd), string(output))
 
 	RequireImageExists(t, h, imageName)
 	t.Cleanup(func() {
-		removeCmd := command.Docker(h, "image", "rm", "-f", imageName)
+		removeCmd := command.Docker(context.Background(), h, "image", "rm", "-f", imageName)
 		if err := removeCmd.Run(); err != nil {
 			t.Logf("failed to remove image %s: %v", imageName, err)
 		}
@@ -72,7 +73,7 @@ func ForceComposeDown(t *testing.T, composeFilePath string) {
 
 func AssertContainersRunning(t *testing.T, dest ssh.Destination, composeFilePath string) {
 	t.Helper()
-	dockerCmd := command.DockerCompose(command.NewHostFromDestination(dest), composeFilePath, "ps", "--format", "json")
+	dockerCmd := command.DockerCompose(context.Background(), command.NewHostFromDestination(dest), composeFilePath, "ps", "--format", "json")
 	output, err := dockerCmd.CombinedOutput()
 	require.NoError(t, err, string(output))
 
@@ -88,7 +89,7 @@ func AssertContainersRunning(t *testing.T, dest ssh.Destination, composeFilePath
 
 func AssertContainersStopped(t *testing.T, dest ssh.Destination, composeFilePath string) {
 	t.Helper()
-	dockerCmd := command.DockerCompose(command.NewHostFromDestination(dest), composeFilePath, "ps", "--format", "json", "--all")
+	dockerCmd := command.DockerCompose(context.Background(), command.NewHostFromDestination(dest), composeFilePath, "ps", "--format", "json", "--all")
 	output, err := dockerCmd.CombinedOutput()
 	require.NoError(t, err, string(output))
 

@@ -1,6 +1,7 @@
 package command_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/arm/topo/internal/deploy/command"
@@ -12,7 +13,7 @@ func TestString(t *testing.T) {
 	t.Run("converts docker command to string", func(t *testing.T) {
 		dest := ssh.NewDestination("ssh://user@remote")
 		remoteHost := command.NewHostFromDestination(dest)
-		cmd := command.Docker(remoteHost, "save", "alpine:latest")
+		cmd := command.Docker(context.Background(), remoteHost, "save", "alpine:latest")
 
 		got := command.String(cmd)
 
@@ -23,7 +24,7 @@ func TestString(t *testing.T) {
 	t.Run("converts docker compose command to string", func(t *testing.T) {
 		dest := ssh.NewDestination("ssh://user@remote")
 		remoteHost := command.NewHostFromDestination(dest)
-		cmd := command.DockerCompose(remoteHost, "/path/to/compose.yaml", "up", "-d")
+		cmd := command.DockerCompose(context.Background(), remoteHost, "/path/to/compose.yaml", "up", "-d")
 
 		got := command.String(cmd)
 

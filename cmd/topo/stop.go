@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/arm/topo/internal/deploy"
@@ -35,7 +36,7 @@ By default, Topo uses compose.yaml in the current working directory, then compos
 
 		stop := deploy.NewDeploymentStop(composeFile, dest)
 
-		return stop.Run(os.Stdout)
+		return stop.Run(context.Background(), os.Stdout)
 	},
 }
 

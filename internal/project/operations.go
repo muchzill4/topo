@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,7 +17,7 @@ import (
 )
 
 func Clone(path string, src Source, argProvider arguments.Provider) error {
-	return NewClone(path, src, argProvider).Run(nil)
+	return NewClone(path, src, argProvider).Run(context.Background(), nil)
 }
 
 func NewClone(path string, src Source, argProvider arguments.Provider) operation.Sequence {
@@ -265,7 +266,7 @@ func (o copyProjectOperation) Description() string {
 	return "Copy files"
 }
 
-func (o copyProjectOperation) Run(_ io.Writer) error {
+func (o copyProjectOperation) Run(_ context.Context, _ io.Writer) error {
 	if err := o.src.CopyTo(o.path); err != nil {
 		if errDestDirExists, ok := errors.AsType[DestDirExistsError](err); ok {
 			return fmt.Errorf("%w: please choose a different project directory or remove the existing directory", errDestDirExists)
@@ -284,7 +285,7 @@ func (o resolveArgsOperation) Description() string {
 	return "Configure project"
 }
 
-func (o resolveArgsOperation) Run(_ io.Writer) error {
+func (o resolveArgsOperation) Run(_ context.Context, _ io.Writer) error {
 	composeFile := filepath.Join(o.path, ComposeFilename)
 	if err := ResolveAndApplyArgs(composeFile, o.argProvider); err != nil {
 		if rmErr := os.RemoveAll(o.path); rmErr != nil {
@@ -303,7 +304,7 @@ func (o printSummary) Description() string {
 	return "Project ready"
 }
 
-func (o printSummary) Run(w io.Writer) error {
+func (o printSummary) Run(_ context.Context, w io.Writer) error {
 	if w == nil {
 		return nil
 	}

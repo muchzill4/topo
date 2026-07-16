@@ -1,6 +1,7 @@
 package operation_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -49,13 +50,13 @@ services:
 			testutil.RequireWriteFile(t, composeFilePath, composeFileContent)
 			testutil.RequireWriteFile(t, dockerFilePath, dockerFileContent)
 
-			buildCmd := command.DockerCompose(h, composeFilePath, "build")
+			buildCmd := command.DockerCompose(context.Background(), h, composeFilePath, "build")
 			buildOutput, err := buildCmd.CombinedOutput()
 			require.NoError(t, err, "failed to build image: %s", string(buildOutput))
 
 			transfer := operation.NewDockerComposePipeTransfer(composeFilePath, h, h)
 
-			err = transfer.Run(os.Stdout)
+			err = transfer.Run(context.Background(), os.Stdout)
 
 			require.NoError(t, err)
 			testutil.RequireImageExists(t, h, imageName)

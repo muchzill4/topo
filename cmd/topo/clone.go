@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -77,7 +78,7 @@ interactive prompts.`,
 
 		argProvider := arguments.NewStrictProviderChain(providers...)
 
-		return project.NewClone(path, projectSource, argProvider).Run(os.Stdout)
+		return project.NewClone(path, projectSource, argProvider).Run(context.Background(), os.Stdout)
 	},
 }
 

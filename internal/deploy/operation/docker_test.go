@@ -2,6 +2,7 @@ package operation_test
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/arm/topo/internal/deploy/command"
@@ -19,7 +20,7 @@ func TestDocker(t *testing.T) {
 			var buf bytes.Buffer
 			op := operation.NewDocker("Test docker version", command.LocalHost, []string{})
 
-			err := op.Run(&buf)
+			err := op.Run(context.Background(), &buf)
 
 			require.NoError(t, err)
 			assert.Contains(t, buf.String(), "Docker version")

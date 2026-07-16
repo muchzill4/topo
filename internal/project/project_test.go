@@ -2,6 +2,7 @@ package project_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -67,7 +68,7 @@ services:
 `, "demo-source")
 		var output bytes.Buffer
 
-		err := project.NewClone(destDir, mockSource, arguments.NewStrictProviderChain()).Run(&output)
+		err := project.NewClone(destDir, mockSource, arguments.NewStrictProviderChain()).Run(context.Background(), &output)
 
 		require.NoError(t, err)
 		out := output.String()

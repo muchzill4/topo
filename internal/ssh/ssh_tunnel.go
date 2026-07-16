@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -49,7 +50,7 @@ func (s *SSHTunnelStart) Description() string {
 	return "Open registry SSH tunnel"
 }
 
-func (s *SSHTunnelStart) Command() *exec.Cmd {
+func (s *SSHTunnelStart) Command(ctx context.Context) *exec.Cmd {
 	args := []string{"ssh", "-N", "-o", "ExitOnForwardFailure=yes"}
 	if s.UseControlSockets {
 		args = append(args,
@@ -61,11 +62,11 @@ func (s *SSHTunnelStart) Command() *exec.Cmd {
 		s.TargetDest.String(),
 	)
 	// #nosec -- arguments are validated
-	return exec.Command(args[0], args[1:]...)
+	return exec.CommandContext(ctx, args[0], args[1:]...)
 }
 
-func (s *SSHTunnelStart) Run(w io.Writer) error {
-	cmd := s.Command()
+func (s *SSHTunnelStart) Run(ctx context.Context, w io.Writer) error {
+	cmd := s.Command(ctx)
 	cmd.Stdout = w
 	cmd.Stderr = w
 	run := cmd.Start
@@ -95,7 +96,7 @@ func (s *SSHTunnelStop) Description() string {
 	return "Close registry SSH tunnel"
 }
 
-func (s *SSHTunnelStop) Command() *exec.Cmd {
+func (s *SSHTunnelStop) Command(ctx context.Context) *exec.Cmd {
 	args := []string{"ssh"}
 	args = append(args,
 		"-S", ControlSocketPath(s.TargetDest.String()),
@@ -103,14 +104,14 @@ func (s *SSHTunnelStop) Command() *exec.Cmd {
 		s.TargetDest.String(),
 	)
 	// #nosec -- arguments are validated
-	return exec.Command(args[0], args[1:]...)
+	return exec.CommandContext(ctx, args[0], args[1:]...)
 }
 
-func (s *SSHTunnelStop) Run(w io.Writer) error {
+func (s *SSHTunnelStop) Run(ctx context.Context, w io.Writer) error {
 	if _, err := os.Stat(ControlSocketPath(s.TargetDest.String())); os.IsNotExist(err) {
 		return nil
 	}
-	cmd := s.Command()
+	cmd := s.Command(ctx)
 	cmd.Stdout = w
 	cmd.Stderr = w
 	if err := cmd.Run(); err != nil {
@@ -132,24 +133,24 @@ func (s *SSHTunnelProcessStop) Description() string {
 	return "Close registry SSH tunnel"
 }
 
-func (s *SSHTunnelProcessStop) Command() *exec.Cmd {
+func (s *SSHTunnelProcessStop) Command(ctx context.Context) *exec.Cmd {
 	pid := TunnelPIDPlaceholder
 	if s.Start != nil && s.Start.Process != nil {
 		pid = fmt.Sprintf("%d", s.Start.Process.Pid)
 	}
 
 	if runtime.GOOS == "windows" {
-		return exec.Command("taskkill", "/PID", pid, "/F")
+		return exec.CommandContext(ctx, "taskkill", "/PID", pid, "/F")
 	}
-	return exec.Command("kill", "-9", pid)
+	return exec.CommandContext(ctx, "kill", "-9", pid)
 }
 
-func (s *SSHTunnelProcessStop) Run(w io.Writer) error {
+func (s *SSHTunnelProcessStop) Run(ctx context.Context, w io.Writer) error {
 	if s.Start == nil || s.Start.Process == nil {
 		return nil
 	}
 
-	cmd := s.Command()
+	cmd := s.Command(ctx)
 	cmd.Stdout = w
 	cmd.Stderr = w
 	if err := cmd.Run(); err != nil {

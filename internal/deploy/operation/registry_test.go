@@ -1,6 +1,7 @@
 package operation_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -45,15 +46,15 @@ func TestContainerExistsPredicate(t *testing.T) {
 		imageName := testutil.TestImageName(t)
 		localHost := command.LocalHost
 		testutil.BuildMinimalImage(t, localHost, imageName)
-		runCmd := command.Docker(localHost, "run", "-d", "--name", containerName, imageName)
+		runCmd := command.Docker(context.Background(), localHost, "run", "-d", "--name", containerName, imageName)
 		require.NoError(t, runCmd.Run())
 		t.Cleanup(func() {
-			stopCmd := command.Docker(localHost, "rm", "-f", containerName)
+			stopCmd := command.Docker(context.Background(), localHost, "rm", "-f", containerName)
 			_ = stopCmd.Run()
 		})
 
 		predicate := operation.NewContainerExistsPredicate(command.LocalHost, containerName)
-		got := predicate.Eval()
+		got := predicate.Eval(context.Background())
 
 		assert.True(t, got)
 	})
@@ -63,7 +64,7 @@ func TestContainerExistsPredicate(t *testing.T) {
 		containerName := "non-existent-container-12345"
 
 		predicate := operation.NewContainerExistsPredicate(command.LocalHost, containerName)
-		got := predicate.Eval()
+		got := predicate.Eval(context.Background())
 
 		assert.False(t, got)
 	})

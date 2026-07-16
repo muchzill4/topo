@@ -1,6 +1,7 @@
 package operation_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -83,26 +84,26 @@ services:
 			testutil.RequireWriteFile(t, composeFilePath, composeFileContent)
 			testutil.RequireWriteFile(t, dockerFilePath, dockerFileContent)
 
-			buildCmd := command.DockerCompose(h, composeFilePath, "build")
+			buildCmd := command.DockerCompose(context.Background(), h, composeFilePath, "build")
 			buildOut, err := buildCmd.CombinedOutput()
 			require.NoError(t, err, "build failed: %s", string(buildOut))
 
-			rmCmd := command.Docker(h, "rm", "-f", operation.RegistryContainerName)
+			rmCmd := command.Docker(context.Background(), h, "rm", "-f", operation.RegistryContainerName)
 			rmOut, rmErr := rmCmd.CombinedOutput()
 			if rmErr != nil {
 				t.Logf("registry container cleanup (expected if not running): %s", string(rmOut))
 			}
 
-			startReg := command.Docker(h, "run", "-d", "--restart=always", "-p", fmt.Sprintf("%s:5000", port), "--name", operation.RegistryContainerName, "registry:2")
+			startReg := command.Docker(context.Background(), h, "run", "-d", "--restart=always", "-p", fmt.Sprintf("%s:5000", port), "--name", operation.RegistryContainerName, "registry:2")
 			startOut, err := startReg.CombinedOutput()
 			require.NoError(t, err, "could not start registry for test: %s", string(startOut))
 			t.Cleanup(func() {
-				rmReg := command.Docker(h, "rm", "-f", operation.RegistryContainerName)
+				rmReg := command.Docker(context.Background(), h, "rm", "-f", operation.RegistryContainerName)
 				_ = rmReg.Run()
 			})
 
 			transfer := operation.NewRegistryTransfer(composeFilePath, h, h, port)
-			err = transfer.Run(os.Stdout)
+			err = transfer.Run(context.Background(), os.Stdout)
 			require.NoError(t, err)
 			testutil.RequireImageExists(t, h, imageName)
 		})

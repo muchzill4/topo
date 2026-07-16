@@ -2,6 +2,7 @@ package operation_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"testing"
@@ -21,8 +22,8 @@ func (m *mockOperation) Description() string {
 	return args.String(0)
 }
 
-func (m *mockOperation) Run(cmdOutput io.Writer) error {
-	args := m.Called(cmdOutput)
+func (m *mockOperation) Run(ctx context.Context, cmdOutput io.Writer) error {
+	args := m.Called(ctx, cmdOutput)
 	return args.Error(0)
 }
 
@@ -30,7 +31,7 @@ type mockPredicate struct {
 	result bool
 }
 
-func (p *mockPredicate) Eval() bool {
+func (p *mockPredicate) Eval(_ context.Context) bool {
 	return p.result
 }
 
@@ -40,10 +41,10 @@ func TestConditional(t *testing.T) {
 			ifTrue := new(mockOperation)
 			condition := &mockPredicate{result: true}
 			var buf bytes.Buffer
-			ifTrue.On("Run", &buf).Return(nil)
+			ifTrue.On("Run", context.Background(), &buf).Return(nil)
 			op := operation.NewConditional(condition, ifTrue, new(mockOperation))
 
-			err := op.Run(&buf)
+			err := op.Run(context.Background(), &buf)
 
 			require.NoError(t, err)
 			ifTrue.AssertExpectations(t)
@@ -53,10 +54,10 @@ func TestConditional(t *testing.T) {
 			ifFalse := new(mockOperation)
 			condition := &mockPredicate{result: false}
 			var buf bytes.Buffer
-			ifFalse.On("Run", &buf).Return(nil)
+			ifFalse.On("Run", context.Background(), &buf).Return(nil)
 			op := operation.NewConditional(condition, new(mockOperation), ifFalse)
 
-			err := op.Run(&buf)
+			err := op.Run(context.Background(), &buf)
 
 			require.NoError(t, err)
 			ifFalse.AssertExpectations(t)
@@ -67,10 +68,10 @@ func TestConditional(t *testing.T) {
 			ifTrue := new(mockOperation)
 			condition := &mockPredicate{result: true}
 			var buf bytes.Buffer
-			ifTrue.On("Run", &buf).Return(expectedErr)
+			ifTrue.On("Run", context.Background(), &buf).Return(expectedErr)
 			op := operation.NewConditional(condition, ifTrue, new(mockOperation))
 
-			err := op.Run(&buf)
+			err := op.Run(context.Background(), &buf)
 
 			assert.Equal(t, expectedErr, err)
 			ifTrue.AssertExpectations(t)
@@ -81,10 +82,10 @@ func TestConditional(t *testing.T) {
 			ifFalse := new(mockOperation)
 			condition := &mockPredicate{result: false}
 			var buf bytes.Buffer
-			ifFalse.On("Run", &buf).Return(expectedErr)
+			ifFalse.On("Run", context.Background(), &buf).Return(expectedErr)
 			op := operation.NewConditional(condition, new(mockOperation), ifFalse)
 
-			err := op.Run(&buf)
+			err := op.Run(context.Background(), &buf)
 
 			assert.Equal(t, expectedErr, err)
 			ifFalse.AssertExpectations(t)

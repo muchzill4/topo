@@ -1,6 +1,7 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -45,13 +46,13 @@ func (d *Docker) Description() string {
 	return d.description
 }
 
-func (d *Docker) Run(cmdOutput io.Writer) error {
-	cmd := d.buildCommand()
+func (d *Docker) Run(ctx context.Context, cmdOutput io.Writer) error {
+	cmd := d.buildCommand(ctx)
 	cmd.Stdout = cmdOutput
 	cmd.Stderr = cmdOutput
 	return cmd.Run()
 }
 
-func (d *Docker) buildCommand() *exec.Cmd {
-	return command.Docker(d.host, d.args...)
+func (d *Docker) buildCommand(ctx context.Context) *exec.Cmd {
+	return command.Docker(ctx, d.host, d.args...)
 }

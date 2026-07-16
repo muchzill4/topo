@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -59,7 +60,7 @@ var setupKeysCmd = &cobra.Command{
 
 		seq := setupkeys.NewKeySetup(dest, privateKeyPath, parsedKeyType)
 
-		err = seq.Run(os.Stdout)
+		err = seq.Run(context.Background(), os.Stdout)
 		if err != nil {
 			return err
 		}

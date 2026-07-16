@@ -1,9 +1,12 @@
 package operation
 
-import "io"
+import (
+	"context"
+	"io"
+)
 
 type Predicate interface {
-	Eval() bool
+	Eval(ctx context.Context) bool
 }
 
 type Conditional struct {
@@ -20,15 +23,16 @@ func NewConditional(condition Predicate, ifTrue Operation, ifFalse Operation) Op
 	}
 }
 
-func (c *Conditional) Run(cmdOutput io.Writer) error {
-	if c.condition.Eval() {
-		return c.ifTrue.Run(cmdOutput)
+func (c *Conditional) Run(ctx context.Context, cmdOutput io.Writer) error {
+	if c.condition.Eval(ctx) {
+		return c.ifTrue.Run(ctx, cmdOutput)
 	}
-	return c.ifFalse.Run(cmdOutput)
+	return c.ifFalse.Run(ctx, cmdOutput)
 }
 
 func (c *Conditional) Description() string {
-	if c.condition.Eval() {
+	// TODO: This needs proper context passed from the call site?
+	if c.condition.Eval(context.Background()) {
 		return c.ifTrue.Description()
 	}
 	return c.ifFalse.Description()

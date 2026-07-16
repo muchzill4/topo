@@ -1,6 +1,7 @@
 package ssh_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -18,7 +19,7 @@ func TestSSHTunnelStart(t *testing.T) {
 			port := "1337"
 
 			st := ssh.NewSSHTunnelStart(dest, port, true)
-			got := strings.Join(st.Command().Args, " ")
+			got := strings.Join(st.Command(context.Background()).Args, " ")
 
 			want := fmt.Sprintf("ssh -N -o ExitOnForwardFailure=yes -fMS %s -R 127.0.0.1:%s:127.0.0.1:%s ssh://user@remote", ssh.ControlSocketPath(dest.String()), port, port)
 			assert.Equal(t, want, got)
@@ -29,7 +30,7 @@ func TestSSHTunnelStart(t *testing.T) {
 			port := "1338"
 
 			st := ssh.NewSSHTunnelStart(dest, port, false)
-			got := strings.Join(st.Command().Args, " ")
+			got := strings.Join(st.Command(context.Background()).Args, " ")
 
 			want := fmt.Sprintf("ssh -N -o ExitOnForwardFailure=yes -R 127.0.0.1:%s:127.0.0.1:%s ssh://user@remote", port, port)
 			assert.Equal(t, want, got)
@@ -53,7 +54,7 @@ func TestSSHTunnelStop(t *testing.T) {
 			dest := ssh.NewDestination("user@remote")
 
 			st := ssh.NewSSHTunnelStop(dest)
-			got := strings.Join(st.Command().Args, " ")
+			got := strings.Join(st.Command(context.Background()).Args, " ")
 
 			want := fmt.Sprintf("ssh -S %s -O exit ssh://user@remote", ssh.ControlSocketPath(dest.String()))
 			assert.Equal(t, want, got)
@@ -78,7 +79,7 @@ func TestSSHTunnelProcessStop(t *testing.T) {
 
 			t.Run("it generates correct kill command without target process", func(t *testing.T) {
 				st := ssh.NewSSHTunnelProcessStop(nil)
-				got := strings.Join(st.Command().Args, " ")
+				got := strings.Join(st.Command(context.Background()).Args, " ")
 
 				want := fmt.Sprintf("taskkill /PID %s /F", ssh.TunnelPIDPlaceholder)
 				assert.Equal(t, want, got)
@@ -88,7 +89,7 @@ func TestSSHTunnelProcessStop(t *testing.T) {
 				start := &ssh.SSHTunnelStart{Process: &os.Process{Pid: 12345}}
 
 				st := ssh.NewSSHTunnelProcessStop(start)
-				got := strings.Join(st.Command().Args, " ")
+				got := strings.Join(st.Command(context.Background()).Args, " ")
 
 				want := fmt.Sprintf("taskkill /PID %d /F", start.Process.Pid)
 				assert.Equal(t, want, got)
@@ -100,7 +101,7 @@ func TestSSHTunnelProcessStop(t *testing.T) {
 
 			t.Run("it generates correct kill command without target process", func(t *testing.T) {
 				st := ssh.NewSSHTunnelProcessStop(nil)
-				got := strings.Join(st.Command().Args, " ")
+				got := strings.Join(st.Command(context.Background()).Args, " ")
 
 				want := fmt.Sprintf("kill -9 %s", ssh.TunnelPIDPlaceholder)
 				assert.Equal(t, want, got)
@@ -110,7 +111,7 @@ func TestSSHTunnelProcessStop(t *testing.T) {
 				start := &ssh.SSHTunnelStart{Process: &os.Process{Pid: 12345}}
 
 				st := ssh.NewSSHTunnelProcessStop(start)
-				got := strings.Join(st.Command().Args, " ")
+				got := strings.Join(st.Command(context.Background()).Args, " ")
 
 				want := fmt.Sprintf("kill -9 %d", start.Process.Pid)
 				assert.Equal(t, want, got)

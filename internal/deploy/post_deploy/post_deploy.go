@@ -1,6 +1,7 @@
 package post_deploy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -51,7 +52,7 @@ func getSuccessMessage(composeFile string) (string, error) {
 	return p.Metadata.DeploymentSuccessMessage, nil
 }
 
-func (p *DeploySuccess) Run(w io.Writer) error {
+func (p *DeploySuccess) Run(ctx context.Context, w io.Writer) error {
 	successMessage, err := getSuccessMessage(p.composeFile)
 	if err != nil {
 		return err

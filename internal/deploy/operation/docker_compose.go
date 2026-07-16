@@ -1,6 +1,7 @@
 package operation
 
 import (
+	"context"
 	"io"
 	"os/exec"
 
@@ -39,7 +40,7 @@ func NewDockerComposePull(composeFile string, h command.Host) *DockerComposePull
 
 func (p *DockerComposePull) Description() string { return "Pull images" }
 
-func (p *DockerComposePull) Run(w io.Writer) error {
+func (p *DockerComposePull) Run(ctx context.Context, w io.Writer) error {
 	services, err := compose.PullableServices(p.composeFile)
 	if err != nil {
 		return err
@@ -48,7 +49,7 @@ func (p *DockerComposePull) Run(w io.Writer) error {
 		return nil
 	}
 	args := append([]string{"pull"}, services...)
-	cmd := command.DockerCompose(p.host, p.composeFile, args...)
+	cmd := command.DockerCompose(ctx, p.host, p.composeFile, args...)
 	cmd.Stdout = w
 	cmd.Stderr = w
 	return cmd.Run()
@@ -73,15 +74,15 @@ func (dc *DockerCompose) Description() string {
 	return dc.description
 }
 
-func (dc *DockerCompose) Run(cmdOutput io.Writer) error {
-	cmd := dc.buildCommand()
+func (dc *DockerCompose) Run(ctx context.Context, cmdOutput io.Writer) error {
+	cmd := dc.buildCommand(ctx)
 	cmd.Stdout = cmdOutput
 	cmd.Stderr = cmdOutput
 	return cmd.Run()
 }
 
-func (dc *DockerCompose) buildCommand() *exec.Cmd {
-	return command.DockerCompose(dc.host, dc.composeFile, dc.args...)
+func (dc *DockerCompose) buildCommand(ctx context.Context) *exec.Cmd {
+	return command.DockerCompose(ctx, dc.host, dc.composeFile, dc.args...)
 }
 
 type RecreateMode int

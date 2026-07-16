@@ -1,6 +1,7 @@
 package deploy_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -72,11 +73,11 @@ services:
 			deployOpts := deploy.DeployOptions{TargetHost: remoteDockerHost}
 			deployment, _ := deploy.NewDeployment(composeFilePath, deployOpts)
 
-			require.NoError(t, deployment.Run(os.Stdout))
+			require.NoError(t, deployment.Run(context.Background(), os.Stdout))
 			testutil.AssertContainersRunning(t, remoteDockerHost, composeFilePath)
 
 			stop := deploy.NewDeploymentStop(composeFilePath, remoteDockerHost)
-			err := stop.Run(os.Stdout)
+			err := stop.Run(context.Background(), os.Stdout)
 
 			require.NoError(t, err)
 			testutil.AssertContainersStopped(t, remoteDockerHost, composeFilePath)

@@ -2,6 +2,7 @@ package operation
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -42,10 +43,10 @@ func NewRegistryRunWrapper(d *Docker) *RegistryRunWrapper {
 	return &RegistryRunWrapper{Docker: d}
 }
 
-func (r *RegistryRunWrapper) Run(w io.Writer) error {
+func (r *RegistryRunWrapper) Run(ctx context.Context, w io.Writer) error {
 	var buf bytes.Buffer
 	combined := io.MultiWriter(w, &buf)
-	if err := r.Docker.Run(combined); err != nil {
+	if err := r.Docker.Run(ctx, combined); err != nil {
 		if strings.Contains(buf.String(), "already in use") || strings.Contains(buf.String(), "already allocated") {
 			return fmt.Errorf("%w\nport is already in use, this could be an existing %s or another process", err, RegistryContainerName)
 		}
@@ -63,8 +64,8 @@ func NewContainerExistsPredicate(host command.Host, containerName string) *Conta
 	return &ContainerExistsPredicate{host: host, containerName: containerName}
 }
 
-func (p *ContainerExistsPredicate) Eval() bool {
-	cmd := command.Docker(p.host, "inspect", p.containerName)
+func (p *ContainerExistsPredicate) Eval(ctx context.Context) bool {
+	cmd := command.Docker(ctx, p.host, "inspect", p.containerName)
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	return cmd.Run() == nil

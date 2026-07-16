@@ -1,6 +1,7 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
@@ -28,30 +29,30 @@ func (t *DockerComposePipeTransfer) Description() string {
 	return "Transfer images"
 }
 
-func (t *DockerComposePipeTransfer) Run(cmdOutput io.Writer) error {
+func (t *DockerComposePipeTransfer) Run(ctx context.Context, cmdOutput io.Writer) error {
 	images, err := compose.ImageNames(t.composeFile)
 	if err != nil {
 		return err
 	}
-	var g errgroup.Group
+	g, ctx := errgroup.WithContext(ctx)
 	for _, image := range images {
 		g.Go(func() error {
-			return t.transferImage(cmdOutput, image)
+			return t.transferImage(ctx, cmdOutput, image)
 		})
 	}
 	return g.Wait()
 }
 
-func (t *DockerComposePipeTransfer) buildTransferCommands(imageName string) (*exec.Cmd, *exec.Cmd) {
-	saveCmd := command.Docker(t.source, "save", imageName)
-	loadCmd := command.Docker(t.dest, "load")
+func (t *DockerComposePipeTransfer) buildTransferCommands(ctx context.Context, imageName string) (*exec.Cmd, *exec.Cmd) {
+	saveCmd := command.Docker(ctx, t.source, "save", imageName)
+	loadCmd := command.Docker(ctx, t.dest, "load")
 	return saveCmd, loadCmd
 }
 
-func (t *DockerComposePipeTransfer) transferImage(cmdOutput io.Writer, imageName string) error {
+func (t *DockerComposePipeTransfer) transferImage(ctx context.Context, cmdOutput io.Writer, imageName string) error {
 	pipeReader, pipeWriter := io.Pipe()
 
-	saveCmd, loadCmd := t.buildTransferCommands(imageName)
+	saveCmd, loadCmd := t.buildTransferCommands(ctx, imageName)
 	saveCmd.Stdout = pipeWriter
 	saveCmd.Stderr = cmdOutput
 	loadCmd.Stdin = pipeReader

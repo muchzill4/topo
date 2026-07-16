@@ -2,6 +2,7 @@ package post_deploy_test
 
 import (
 	"bytes"
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -26,7 +27,7 @@ services:
 		op := post_deploy.NewDeploySuccess(composeFile, command.LocalHost, "Run `topo ps` to see deployed containers")
 		var buf bytes.Buffer
 
-		err := op.Run(&buf)
+		err := op.Run(context.Background(), &buf)
 
 		require.NoError(t, err)
 		assert.Equal(t, "Deployment complete!\n", buf.String())
@@ -43,7 +44,7 @@ services:
 		op := post_deploy.NewDeploySuccess(composeFile, command.LocalHost, "default message")
 		var buf bytes.Buffer
 
-		err := op.Run(&buf)
+		err := op.Run(context.Background(), &buf)
 
 		require.NoError(t, err)
 		assert.Equal(t, "default message\n", buf.String())
@@ -53,7 +54,7 @@ services:
 		op := post_deploy.NewDeploySuccess("nonexistent.yaml", command.LocalHost, "Run `topo ps` to see deployed containers")
 		var buf bytes.Buffer
 
-		err := op.Run(&buf)
+		err := op.Run(context.Background(), &buf)
 
 		require.Error(t, err)
 	})

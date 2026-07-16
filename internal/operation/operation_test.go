@@ -2,6 +2,7 @@ package operation_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -17,11 +18,10 @@ func TestSetupExitCleanup(t *testing.T) {
 	t.Run("calls cleanup operation on interrupt signal", func(t *testing.T) {
 		testutil.RequireOS(t, "linux")
 		cleanupOp := new(mockOperation)
-		var buf bytes.Buffer
-		cleanupOp.On("Run", &buf).Return(nil)
+		var stderr bytes.Buffer
+		cleanupOp.On("Run", context.Background(), &stderr).Return(nil)
 		p, err := os.FindProcess(os.Getpid())
 		require.NoError(t, err)
-		var stderr bytes.Buffer
 		operation.SetupExitCleanup(&stderr, cleanupOp, osExit)
 
 		err = p.Signal(os.Interrupt)
@@ -34,7 +34,7 @@ func TestSetupExitCleanup(t *testing.T) {
 	t.Run("calls cleanup operation only once when called multiple times", func(t *testing.T) {
 		cleanupOp := new(mockOperation)
 		var stderr bytes.Buffer
-		cleanupOp.On("Run", &stderr).Return(nil).Once()
+		cleanupOp.On("Run", context.Background(), &stderr).Return(nil).Once()
 		cleanup := operation.SetupExitCleanup(&stderr, cleanupOp, osExit)
 
 		cleanup()

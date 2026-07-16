@@ -1,6 +1,7 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -13,7 +14,7 @@ import (
 
 type Operation interface {
 	Description() string
-	Run(cmdOutput io.Writer) error
+	Run(ctx context.Context, cmdOutput io.Writer) error
 }
 
 // SetupExitCleanup sets up a handler to run an operation once when the program exits due to an interrupt signal.
@@ -24,7 +25,8 @@ func SetupExitCleanup(w io.Writer, operation Operation, exit func(int)) func() {
 	doCleanupOnce := func() {
 		once.Do(func() {
 			if operation != nil {
-				if err := operation.Run(w); err != nil {
+				// TODO
+				if err := operation.Run(context.Background(), w); err != nil {
 					logger.Error(fmt.Sprintf("failed to cleanup on exit: %v", err))
 				}
 			}

@@ -2,6 +2,7 @@ package operation_test
 
 import (
 	"bytes"
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -28,7 +29,7 @@ services:
 			var buf bytes.Buffer
 			op := operation.NewDockerCompose("", composeFilePath, command.LocalHost, []string{"config", "--services"})
 
-			err := op.Run(&buf)
+			err := op.Run(context.Background(), &buf)
 
 			require.NoError(t, err)
 			assert.Contains(t, buf.String(), "test-service")
@@ -73,7 +74,7 @@ services:
 			var buf bytes.Buffer
 			op := operation.NewDockerComposePull(composeFilePath, command.LocalHost)
 
-			err := op.Run(&buf)
+			err := op.Run(context.Background(), &buf)
 
 			require.NoError(t, err)
 		})

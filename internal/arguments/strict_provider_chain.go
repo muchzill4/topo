@@ -1,8 +1,9 @@
 package arguments
 
-import "strings"
-
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // StrictProviderChain chains multiple providers and ensures all required arguments are resolved.
 // It stops early once all required arguments are satisfied.

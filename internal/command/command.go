@@ -1,14 +1,15 @@
 package command
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
 )
 
-func SSHKeyGen(keyType string, keyPath string, targetHost string) *exec.Cmd {
+func SSHKeyGen(ctx context.Context, keyType string, keyPath string, targetHost string) *exec.Cmd {
 	sshKeyGenArgs := []string{"-t", keyType, "-f", keyPath, "-C", targetHost}
-	return exec.Command("ssh-keygen", sshKeyGenArgs...)
+	return exec.CommandContext(ctx, "ssh-keygen", sshKeyGenArgs...)
 }
 
 func WrapInLoginShell(cmd string) string {
