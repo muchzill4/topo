@@ -11,7 +11,6 @@ import (
 	"github.com/arm/topo/internal/deploy/operation"
 	checks "github.com/arm/topo/internal/deploy/project_checks"
 	"github.com/arm/topo/internal/env"
-	goperation "github.com/arm/topo/internal/operation"
 	"github.com/arm/topo/internal/output/logger"
 	"github.com/arm/topo/internal/ssh"
 
@@ -96,10 +95,7 @@ By default, Topo uses compose.yaml in the current working directory, then compos
 			logger.Warn("registry transfer is not yet supported with this configuration. Falling back to direct transfer.")
 		}
 
-		deployment, cleanup := deploy.NewDeployment(composeFile, deployOpts)
-		stop := goperation.SetupExitCleanup(os.Stdout, cleanup, os.Exit)
-
-		defer stop()
+		deployment := deploy.NewDeployment(composeFile, deployOpts)
 
 		err = deployment.Run(cmd.Context(), os.Stdout)
 		if err != nil {

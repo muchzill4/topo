@@ -1,6 +1,7 @@
 package operation_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -26,7 +27,7 @@ func TestRegistryTunnelExposureCheck(t *testing.T) {
 		check := operation.NewRegistryTunnelExposureCheck(ssh.PlainLocalhost, "invalid")
 		var output strings.Builder
 
-		err := check.Run(&output)
+		err := check.Run(context.Background(), &output)
 
 		assert.NoError(t, err)
 		assert.Empty(t, output.String())
@@ -35,7 +36,7 @@ func TestRegistryTunnelExposureCheck(t *testing.T) {
 	t.Run("fails when the SSH hostname cannot be resolved", func(t *testing.T) {
 		check := operation.NewRegistryTunnelExposureCheck(ssh.Destination{}, "12345")
 
-		err := check.Run(io.Discard)
+		err := check.Run(context.Background(), io.Discard)
 
 		assert.ErrorContains(t, err, "cannot conclusively rule out network access to registry port 12345")
 		assert.ErrorContains(t, err, `could not resolve SSH configuration for "ssh://"`)
@@ -47,7 +48,7 @@ func TestRegistryTunnelExposureCheck(t *testing.T) {
 		check := operation.NewRegistryTunnelExposureCheck(ssh.NewDestination("0.0.0.0"), port)
 		var output strings.Builder
 
-		err := check.Run(&output)
+		err := check.Run(context.Background(), &output)
 
 		assert.NoError(t, err)
 		assert.Equal(t, fmt.Sprintf("Registry port %s is bound to remote loopback only\n", port), output.String())
@@ -70,7 +71,7 @@ func TestRegistryTunnelExposureCheck(t *testing.T) {
 		require.NoError(t, err)
 		check := operation.NewRegistryTunnelExposureCheck(ssh.NewDestination("localhost."), port)
 
-		err = check.Run(io.Discard)
+		err = check.Run(context.Background(), io.Discard)
 		listenerCloseErr := listener.Close()
 
 		assert.EqualError(t, err, fmt.Sprintf("the remote SSH server is exposing forwarded registry port %s beyond remote loopback; configure the SSH server to bind remote forwards to loopback only, or use `--skip-remote-port-check` if you understand that the registry may be reachable without SSH authentication", port))
