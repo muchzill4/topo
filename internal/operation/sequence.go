@@ -15,7 +15,9 @@ func NewSequence(operations ...Operation) Sequence {
 
 func (s Sequence) Run(ctx context.Context, cmdOutput io.Writer) error {
 	for _, op := range s {
-		// TODO: should probably check context is not cancelled?
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if cmdOutput != nil {
 			err := term.PrintHeader(cmdOutput, op.Description())
 			if err != nil {
