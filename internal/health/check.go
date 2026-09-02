@@ -1,6 +1,7 @@
 package health
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,8 +9,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/arm/topo/internal/deploy/docker"
 	"github.com/arm/topo/internal/output/logger"
 	"github.com/arm/topo/internal/runner"
+	"github.com/arm/topo/internal/ssh"
 	"github.com/arm/topo/internal/version"
 )
 
@@ -37,6 +40,26 @@ type CommandSuccessful struct {
 func (c CommandSuccessful) Run(ctx context.Context, r runner.Runner, dep Dependency) (*Fix, error) {
 	_, _, err := r.Run(ctx, c.Cmd)
 	return c.Fix, err
+}
+
+// DockerSSHTransportAvailable verifies the Docker SSH transport Topo uses to deploy to a target.
+type DockerSSHTransportAvailable struct {
+	Destination ssh.Destination
+	Fix         *Fix
+}
+
+func (c DockerSSHTransportAvailable) Run(ctx context.Context, _ runner.Runner, _ Dependency) (*Fix, error) {
+	var stderr bytes.Buffer
+	cmd := docker.Command(ctx, docker.NewHostFromDestination(c.Destination), "info")
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		message := strings.TrimSpace(stderr.String())
+		if message != "" {
+			return c.Fix, fmt.Errorf("%s: %w", message, err)
+		}
+		return c.Fix, err
+	}
+	return c.Fix, nil
 }
 
 type BinaryExists struct {

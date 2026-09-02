@@ -52,6 +52,21 @@ func TestDependencyFormat(t *testing.T) {
 }
 
 func TestTargetRequiredDependencies(t *testing.T) {
+	t.Run("docker's health check validates the SSH transport", func(t *testing.T) {
+		target := ssh.NewDestination("user@my-target")
+		deps := health.TargetRequiredDependencies(target)
+
+		dep, err := findDependencyByBinary(t, deps, "docker")
+
+		assert.NoError(t, err)
+		assert.Contains(t, dep.Checks, health.DockerSSHTransportAvailable{
+			Destination: target,
+			Fix: &health.Fix{
+				Description: "Ensure Docker is installed, running, and accessible to the SSH user on the target. See https://github.com/arm/topo#install-a-container-engine",
+			},
+		})
+	})
+
 	t.Run("remoteproc install fix command includes the target", func(t *testing.T) {
 		deps := health.TargetRequiredDependencies(ssh.NewDestination("user@my-target"))
 

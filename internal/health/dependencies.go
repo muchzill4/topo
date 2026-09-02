@@ -129,10 +129,10 @@ func TargetRequiredDependencies(target ssh.Destination) []Dependency {
 						Description: "Install a supported container engine. See " + containerEngineInstallURL,
 					},
 				},
-				CommandSuccessful{
-					Cmd: "docker info",
+				DockerSSHTransportAvailable{
+					Destination: target,
 					Fix: &Fix{
-						Description: "Ensure current user can run docker commands. See " + containerEngineInstallURL,
+						Description: "Ensure Docker is installed, running, and accessible to the SSH user on the target. See " + containerEngineInstallURL,
 					},
 				},
 			},
