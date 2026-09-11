@@ -52,9 +52,8 @@ type CheckHostOptions struct {
 }
 
 func CheckHost(opts CheckHostOptions) HostReport {
-	r := runner.NewLocal()
 	deps := HostRequiredDependencies(opts.SkipVersionChecks)
-	dependencyStatuses := PerformChecks(context.Background(), deps, r)
+	dependencyStatuses := PerformChecks(context.Background(), deps)
 	return GenerateHostReport(dependencyStatuses)
 }
 

@@ -34,7 +34,7 @@ func ProbeHealthStatus(ctx context.Context, r runner.Runner, target ssh.Destinat
 	hs.Hardware.Err = err
 
 	dependenciesToCheck := FilterByHardware(TargetRequiredDependencies(target), hs.Hardware.Capabilities())
-	hs.Dependencies = PerformChecks(ctx, dependenciesToCheck, r)
+	hs.Dependencies = PerformChecks(ctx, dependenciesToCheck)
 
 	return hs
 }

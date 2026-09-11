@@ -26,7 +26,7 @@ type Dependency struct {
 	HardwarePrerequisites []HardwareCapability
 }
 
-type DependencyCheckFn func(ctx context.Context, r runner.Runner) DependencyCheckResult
+type DependencyCheckFn func(ctx context.Context) DependencyCheckResult
 
 type DependencyCheckResult struct {
 	SuccessValue string
@@ -53,10 +53,12 @@ type Fix struct {
 }
 
 func HostRequiredDependencies(skipVersionChecks bool) []Dependency {
+	r := runner.NewLocal()
+
 	topo := Dependency{
 		ID:    DependencyID("topo"),
 		Label: "Topo",
-		Check: func(ctx context.Context, _ runner.Runner) DependencyCheckResult {
+		Check: func(ctx context.Context) DependencyCheckResult {
 			if skipVersionChecks {
 				return DependencyCheckResult{SuccessValue: "topo"}
 			}
@@ -70,7 +72,7 @@ func HostRequiredDependencies(skipVersionChecks bool) []Dependency {
 	ssh := Dependency{
 		ID:    DependencyID("ssh"),
 		Label: "OpenSSH",
-		Check: func(ctx context.Context, r runner.Runner) DependencyCheckResult {
+		Check: func(ctx context.Context) DependencyCheckResult {
 			if err := r.BinaryExists(ctx, "ssh"); err != nil {
 				return DependencyCheckResult{Failure: &DependencyCheckFailure{Severity: SeverityError, Message: err.Error()}}
 			}
@@ -84,7 +86,7 @@ func HostRequiredDependencies(skipVersionChecks bool) []Dependency {
 	docker := Dependency{
 		ID:    DependencyID("host-docker"),
 		Label: "Container Engine",
-		Check: func(ctx context.Context, r runner.Runner) DependencyCheckResult {
+		Check: func(ctx context.Context) DependencyCheckResult {
 			if err := r.BinaryExists(ctx, "docker"); err != nil {
 				return DependencyCheckResult{Failure: &DependencyCheckFailure{
 					Severity: SeverityError,
@@ -106,7 +108,7 @@ func HostRequiredDependencies(skipVersionChecks bool) []Dependency {
 	dockerCompose := Dependency{
 		ID:    DependencyID("docker-compose"),
 		Label: "Docker Compose",
-		Check: func(ctx context.Context, r runner.Runner) DependencyCheckResult {
+		Check: func(ctx context.Context) DependencyCheckResult {
 			if _, _, err := r.Run(ctx, "docker-compose"); err != nil {
 				return DependencyCheckResult{Failure: &DependencyCheckFailure{
 					Severity: SeverityError,
@@ -126,10 +128,17 @@ func HostRequiredDependencies(skipVersionChecks bool) []Dependency {
 }
 
 func TargetRequiredDependencies(target ssh.Destination) []Dependency {
+	var r runner.Runner
+	if target.IsPlainLocalhost() {
+		r = runner.NewLocal()
+	} else {
+		r = runner.NewSSH(target)
+	}
+
 	docker := Dependency{
 		ID:    DependencyID("target-docker"),
 		Label: "Container Engine",
-		Check: func(ctx context.Context, r runner.Runner) DependencyCheckResult {
+		Check: func(ctx context.Context) DependencyCheckResult {
 			if err := r.BinaryExists(ctx, "docker"); err != nil {
 				return DependencyCheckResult{Failure: &DependencyCheckFailure{
 					Severity: SeverityError,
@@ -153,7 +162,7 @@ func TargetRequiredDependencies(target ssh.Destination) []Dependency {
 		Label:                 "Remoteproc Runtime",
 		SoftwarePrerequisites: []DependencyID{docker.ID},
 		HardwarePrerequisites: []HardwareCapability{Remoteproc},
-		Check: func(ctx context.Context, r runner.Runner) DependencyCheckResult {
+		Check: func(ctx context.Context) DependencyCheckResult {
 			if err := r.BinaryExists(ctx, "remoteproc-runtime"); err != nil {
 				return DependencyCheckResult{Failure: &DependencyCheckFailure{
 					Severity: SeverityWarning,
@@ -173,7 +182,7 @@ func TargetRequiredDependencies(target ssh.Destination) []Dependency {
 		Label:                 "Remoteproc Shim",
 		SoftwarePrerequisites: []DependencyID{docker.ID},
 		HardwarePrerequisites: []HardwareCapability{Remoteproc},
-		Check: func(ctx context.Context, r runner.Runner) DependencyCheckResult {
+		Check: func(ctx context.Context) DependencyCheckResult {
 			if err := r.BinaryExists(ctx, "containerd-shim-remoteproc-v1"); err != nil {
 				return DependencyCheckResult{Failure: &DependencyCheckFailure{
 					Severity: SeverityWarning,
@@ -191,7 +200,7 @@ func TargetRequiredDependencies(target ssh.Destination) []Dependency {
 	lscpu := Dependency{
 		ID:    DependencyID("lscpu"),
 		Label: "Hardware Info",
-		Check: func(ctx context.Context, r runner.Runner) DependencyCheckResult {
+		Check: func(ctx context.Context) DependencyCheckResult {
 			if err := r.BinaryExists(ctx, "lscpu"); err != nil {
 				return DependencyCheckResult{Failure: &DependencyCheckFailure{Severity: SeverityError, Message: err.Error()}}
 			}
@@ -226,7 +235,7 @@ func hardwareCapabilityMatches(required []HardwareCapability, available map[Hard
 	return false
 }
 
-func PerformChecks(ctx context.Context, dependencies []Dependency, runner runner.Runner) []DependencyStatus {
+func PerformChecks(ctx context.Context, dependencies []Dependency) []DependencyStatus {
 	healthy := make(map[DependencyID]struct{})
 	result := make([]DependencyStatus, 0, len(dependencies))
 
@@ -237,7 +246,7 @@ func PerformChecks(ctx context.Context, dependencies []Dependency, runner runner
 
 		checkResult := DependencyCheckResult{}
 		if dep.Check != nil {
-			checkResult = dep.Check(ctx, runner)
+			checkResult = dep.Check(ctx)
 		}
 		if checkResult.Failure == nil {
 			healthy[dep.ID] = struct{}{}
