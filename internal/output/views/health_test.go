@@ -90,46 +90,6 @@ func TestHealthReport(t *testing.T) {
 			assert.Contains(t, out.String(), " i Processing Domain Driver (remoteproc) (no remoteproc devices found)")
 		})
 
-		t.Run("it renders connection failures", func(t *testing.T) {
-			toPrint := views.NewHealthReport(health.HostReport{}, &health.TargetReport{
-				Connectivity: health.HealthCheck{
-					Name:   "Connected",
-					Status: health.CheckStatusError,
-				},
-			}, "")
-			var out bytes.Buffer
-
-			err := views.Print(toPrint, &out, term.Plain)
-
-			require.NoError(t, err)
-			assert.Contains(t, out.String(), " ✗ Connected")
-		})
-
-		t.Run("it renders the target destination", func(t *testing.T) {
-			toPrint := views.NewHealthReport(health.HostReport{}, &health.TargetReport{Destination: "ssh://user@my-target"}, "")
-			var out bytes.Buffer
-
-			err := views.Print(toPrint, &out, term.Plain)
-
-			require.NoError(t, err)
-			assert.Contains(t, out.String(), "┌─ Target: ssh://user@my-target ")
-		})
-
-		t.Run("when not connected, it does not render cpu features", func(t *testing.T) {
-			toPrint := views.NewHealthReport(health.HostReport{}, &health.TargetReport{
-				Connectivity: health.HealthCheck{
-					Name:   "Connected",
-					Status: health.CheckStatusError,
-				},
-			}, "")
-			var out bytes.Buffer
-
-			err := views.Print(toPrint, &out, term.Plain)
-
-			require.NoError(t, err)
-			assert.NotContains(t, out.String(), "Features (Linux Host)")
-		})
-
 		t.Run("it renders the fix hint when a check has a fix", func(t *testing.T) {
 			toPrint := views.NewHealthReport(health.HostReport{
 				Dependencies: []health.HealthCheck{

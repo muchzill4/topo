@@ -2,8 +2,11 @@ package health
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/arm/topo/internal/command"
+	"github.com/arm/topo/internal/probe"
 	"github.com/arm/topo/internal/runner"
 	"github.com/arm/topo/internal/ssh"
 )
@@ -22,7 +25,7 @@ type Dependency struct {
 	ID                    DependencyID
 	Label                 string
 	Check                 DependencyCheckFn
-	SoftwarePrerequisites []DependencyID
+	Prerequisites         []DependencyID
 	HardwarePrerequisites []HardwareCapability
 }
 
@@ -121,18 +124,63 @@ func HostRequiredDependencies(skipVersionChecks bool) []Dependency {
 			}
 			return DependencyCheckResult{SuccessValue: "docker-compose"}
 		},
-		SoftwarePrerequisites: []DependencyID{docker.ID},
+		Prerequisites: []DependencyID{docker.ID},
 	}
 
 	return []Dependency{topo, ssh, docker, dockerCompose}
 }
 
 func TargetRequiredDependencies(target ssh.Destination) []Dependency {
+	allDependencies := []Dependency(nil)
+
 	var r runner.Runner
+	hasConnectivityCheckForRemoteTarget := []DependencyID(nil)
 	if target.IsPlainLocalhost() {
 		r = runner.NewLocal()
 	} else {
 		r = runner.NewSSH(target)
+		connectivity := Dependency{
+			ID:    DependencyID("target-connectivity"),
+			Label: "Connectivity",
+			Check: func(ctx context.Context) DependencyCheckResult {
+				err := probe.SSHAuthentication(ctx, runner.NewSSH(target), true)
+				// err := probe.SSHAuthentication(ctx, runner.NewSSH(target), acceptNewHostKeys)
+				if err != nil {
+					failure := DependencyCheckFailure{
+						Severity: SeverityError,
+						Message:  err.Error(),
+					}
+					switch {
+					case errors.Is(err, probe.ErrAuthFailed) || errors.Is(err, probe.ErrTooManyAuthFails):
+						failure.Fix = &Fix{
+							Description: "Configure SSH keys on remote target",
+							Command:     fmt.Sprintf("topo setup-keys --target %s", target),
+						}
+					case errors.Is(err, probe.ErrHostKeyUnknown):
+						failure.Fix = &Fix{
+							Description: "Trust the target's SSH host key",
+							Command:     fmt.Sprintf("topo health --target %s --accept-new-host-keys", target),
+						}
+					case errors.Is(err, probe.ErrHostKeyChanged):
+						sshConfig, err := ssh.LoadConfig(target)
+						var fixCommand string
+						if err == nil {
+							fixCommand = fmt.Sprintf("ssh-keygen -R %s", command.QuoteArg(sshConfig.AsKnownHostsEntry()))
+						}
+						failure.Fix = &Fix{
+							Description: "Remove the old SSH host key from known_hosts, then retry",
+							Command:     fixCommand,
+						}
+					}
+					return DependencyCheckResult{
+						Failure: &failure,
+					}
+				}
+				return DependencyCheckResult{SuccessValue: target.String()}
+			},
+		}
+		allDependencies = append(allDependencies, connectivity)
+		hasConnectivityCheckForRemoteTarget = append(hasConnectivityCheckForRemoteTarget, connectivity.ID)
 	}
 
 	docker := Dependency{
@@ -155,12 +203,13 @@ func TargetRequiredDependencies(target ssh.Destination) []Dependency {
 			}
 			return DependencyCheckResult{SuccessValue: "docker"}
 		},
+		Prerequisites: hasConnectivityCheckForRemoteTarget,
 	}
 
 	remoteprocRuntime := Dependency{
 		ID:                    DependencyID("remoteproc-runtime"),
 		Label:                 "Remoteproc Runtime",
-		SoftwarePrerequisites: []DependencyID{docker.ID},
+		Prerequisites:         []DependencyID{docker.ID},
 		HardwarePrerequisites: []HardwareCapability{Remoteproc},
 		Check: func(ctx context.Context) DependencyCheckResult {
 			if err := r.BinaryExists(ctx, "remoteproc-runtime"); err != nil {
@@ -180,7 +229,7 @@ func TargetRequiredDependencies(target ssh.Destination) []Dependency {
 	remoteprocRuntimeShim := Dependency{
 		ID:                    DependencyID("containerd-shim-remoteproc-v1"),
 		Label:                 "Remoteproc Shim",
-		SoftwarePrerequisites: []DependencyID{docker.ID},
+		Prerequisites:         []DependencyID{docker.ID},
 		HardwarePrerequisites: []HardwareCapability{Remoteproc},
 		Check: func(ctx context.Context) DependencyCheckResult {
 			if err := r.BinaryExists(ctx, "containerd-shim-remoteproc-v1"); err != nil {
@@ -208,7 +257,7 @@ func TargetRequiredDependencies(target ssh.Destination) []Dependency {
 		},
 	}
 
-	return []Dependency{docker, remoteprocRuntime, remoteprocRuntimeShim, lscpu}
+	return append(allDependencies, []Dependency{docker, remoteprocRuntime, remoteprocRuntimeShim, lscpu}...)
 }
 
 type DependencyStatus struct {
@@ -240,7 +289,7 @@ func PerformChecks(ctx context.Context, dependencies []Dependency) []DependencyS
 	result := make([]DependencyStatus, 0, len(dependencies))
 
 	for _, dep := range dependencies {
-		if !allPrerequisitesFulfilled(dep.SoftwarePrerequisites, healthy) {
+		if !allPrerequisitesFulfilled(dep.Prerequisites, healthy) {
 			continue
 		}
 

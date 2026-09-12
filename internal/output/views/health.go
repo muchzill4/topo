@@ -45,18 +45,13 @@ const healthReportTemplate = `
 {{ template "checkRow" $hostCheckRow }}
 {{- end }}
 
-{{ if .Target }}{{ targetHeading .Target.Destination -}}
-  {{- if not .Target.IsLocalhost }}
-{{ template "checkRow" .Target.Connectivity }}
-  {{- end }}
-  {{- if or .Target.IsLocalhost (isOK .Target.Connectivity.Status) }}
+{{ sectionHeading "Target" }}
+{{- if .Target }}
     {{- range $targetCheckRow := .Target.Dependencies }}
 {{ template "checkRow" $targetCheckRow }}
     {{- end }}
 {{ template "checkRow" .Target.ProcessingDomainDriver }}
-  {{- end }}
-{{- else -}}
-{{ sectionHeading "Target" }}
+{{- else }}
 {{ .TargetHint }}
 {{- end }}
 
@@ -67,9 +62,6 @@ func (r HealthReport) AsPlain(isTTY bool) (string, error) {
 	funcMap["status"] = healthStatusFormatter(isTTY)
 	funcMap["sectionHeading"] = func(heading string) string {
 		return sectionHeading(heading, isTTY)
-	}
-	funcMap["targetHeading"] = func(destination string) string {
-		return targetHeading(destination, isTTY)
 	}
 	funcMap["isOK"] = func(s health.CheckStatus) bool {
 		return s == health.CheckStatusOK
@@ -99,10 +91,6 @@ func (r HealthReport) AsJSON() (string, error) {
 
 func sectionHeading(heading string, isTTY bool) string {
 	return term.Header(heading, isTTY)
-}
-
-func targetHeading(destination string, isTTY bool) string {
-	return sectionHeading(fmt.Sprintf("Target: %s", destination), isTTY)
 }
 
 func healthStatusFormatter(isTTY bool) func(health.CheckStatus) string {

@@ -2,11 +2,8 @@ package health
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 
-	"github.com/arm/topo/internal/command"
 	"github.com/arm/topo/internal/probe"
 	"github.com/arm/topo/internal/runner"
 	"github.com/arm/topo/internal/ssh"
@@ -103,7 +100,6 @@ func GenerateHostReport(statuses []DependencyStatus) HostReport {
 func GenerateTargetReport(targetStatus Status) TargetReport {
 	report := TargetReport{}
 	report.IsLocalhost = targetStatus.Connection.IsPlainLocalhost()
-	report.Connectivity = connectivityCheck(targetStatus.Connection)
 
 	report.ProcessingDomainDriver.Name = "Processing Domain Driver (remoteproc)"
 	remoteProcessors := targetStatus.Hardware.RemoteProcessors
@@ -127,41 +123,6 @@ func GenerateTargetReport(targetStatus Status) TargetReport {
 	report.Destination = targetStatus.Connection.Destination.String()
 
 	return report
-}
-
-func connectivityCheck(status ConnectionStatus) HealthCheck {
-	check := HealthCheck{
-		Name:   "Connectivity",
-		Status: NewCheckStatusFromError(status.Error),
-	}
-	if status.Error == nil {
-		return check
-	}
-
-	check.Value = status.Error.Error()
-	switch {
-	case errors.Is(status.Error, probe.ErrAuthFailed) || errors.Is(status.Error, probe.ErrTooManyAuthFails):
-		check.Fix = &Fix{
-			Description: "Configure SSH keys on remote target",
-			Command:     fmt.Sprintf("topo setup-keys --target %s", status.Destination),
-		}
-	case errors.Is(status.Error, probe.ErrHostKeyUnknown):
-		check.Fix = &Fix{
-			Description: "Trust the target's SSH host key",
-			Command:     fmt.Sprintf("topo health --target %s --accept-new-host-keys", status.Destination),
-		}
-	case errors.Is(status.Error, probe.ErrHostKeyChanged):
-		sshConfig, err := ssh.LoadConfig(status.Destination)
-		var fixCommand string
-		if err == nil {
-			fixCommand = fmt.Sprintf("ssh-keygen -R %s", command.QuoteArg(sshConfig.AsKnownHostsEntry()))
-		}
-		check.Fix = &Fix{
-			Description: "Remove the old SSH host key from known_hosts, then retry",
-			Command:     fixCommand,
-		}
-	}
-	return check
 }
 
 func generateDependencyReport(statuses []DependencyStatus) []HealthCheck {

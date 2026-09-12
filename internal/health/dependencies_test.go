@@ -31,7 +31,7 @@ func TestDependencies(t *testing.T) {
 			ids := make([]health.DependencyID, 0, len(deps))
 			for _, dep := range deps {
 				ids = append(ids, dep.ID)
-				for _, prereq := range dep.SoftwarePrerequisites {
+				for _, prereq := range dep.Prerequisites {
 					require.Contains(t, ids, prereq)
 				}
 			}
@@ -44,7 +44,7 @@ func TestDependencies(t *testing.T) {
 			ids := make([]health.DependencyID, 0, len(deps))
 			for _, dep := range deps {
 				ids = append(ids, dep.ID)
-				for _, prereq := range dep.SoftwarePrerequisites {
+				for _, prereq := range dep.Prerequisites {
 					require.Contains(t, ids, prereq)
 				}
 			}
@@ -108,8 +108,8 @@ func TestPerformChecks(t *testing.T) {
 				Check: failingCheck,
 			}
 			pizzaWhichShouldBeOmitted := health.Dependency{
-				ID:                    "pizza",
-				SoftwarePrerequisites: []health.DependencyID{pineapple.ID, cheese.ID},
+				ID:            "pizza",
+				Prerequisites: []health.DependencyID{pineapple.ID, cheese.ID},
 			}
 			deps := []health.Dependency{
 				pineapple,
@@ -129,8 +129,8 @@ func TestPerformChecks(t *testing.T) {
 				Check: passingCheck,
 			}
 			luke := health.Dependency{
-				ID:                    "luke",
-				SoftwarePrerequisites: []health.DependencyID{vader.ID},
+				ID:            "luke",
+				Prerequisites: []health.DependencyID{vader.ID},
 			}
 			deps := []health.Dependency{vader, luke}
 
