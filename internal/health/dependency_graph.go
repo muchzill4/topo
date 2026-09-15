@@ -92,16 +92,20 @@ func NewDependencyGraph(options DependencyGraphOptions) DependencyGraph {
 	hostSSH := NewDependencyOnSSH(localRunner)
 	hostDocker := NewDependencyOnDocker("host-docker", localRunner)
 	dockerCompose := NewDependencyOnDockerCompose(localRunner, hostDocker.ID)
-	hostDependencies := []Dependency{topo, hostSSH, hostDocker, dockerCompose}
+	legacyHostDependencies := []Dependency{topo, hostSSH, hostDocker, dockerCompose}
 
-	targetDependencies := []Dependency(nil)
+	legacyTargetDependencies := []Dependency(nil)
+	deploymentTargetDependencies := []DependencyID(nil)
+	projectDiscoveryTargetDependencies := []DependencyID(nil)
 	if options.Target != nil {
 		targetRunner := runner.For(*options.Target)
 		remoteTargetPrerequisites := []DependencyID(nil)
 		if !options.Target.IsPlainLocalhost() {
 			connectivity := NewConnectivityDependency(*options.Target, options.AcceptHostKeys)
-			targetDependencies = append(targetDependencies, connectivity)
+			legacyTargetDependencies = append(legacyTargetDependencies, connectivity)
 			remoteTargetPrerequisites = []DependencyID{connectivity.ID}
+			deploymentTargetDependencies = append(deploymentTargetDependencies, connectivity.ID)
+			projectDiscoveryTargetDependencies = append(projectDiscoveryTargetDependencies, connectivity.ID)
 		}
 		targetDocker := NewDependencyOnDocker("target-docker", targetRunner, remoteTargetPrerequisites...)
 		remoteproc := NewDependencyOnRemoteproc(targetRunner, remoteTargetPrerequisites...)
@@ -109,23 +113,30 @@ func NewDependencyGraph(options DependencyGraphOptions) DependencyGraph {
 		remoteprocRuntime := NewDependencyOnRemoteprocRuntime(*options.Target, targetRunner, runtimePrerequisites...)
 		remoteprocRuntimeShim := NewDependencyOnRemoteprocRuntimeShim(*options.Target, targetRunner, runtimePrerequisites...)
 		lscpu := NewDependencyOnLscpu(targetRunner, remoteTargetPrerequisites...)
-		targetDependencies = append(targetDependencies, targetDocker, remoteproc, remoteprocRuntime, remoteprocRuntimeShim, lscpu)
+		legacyTargetDependencies = append(legacyTargetDependencies, targetDocker, remoteproc, remoteprocRuntime, remoteprocRuntimeShim, lscpu)
+		deploymentTargetDependencies = append(deploymentTargetDependencies, targetDocker.ID)
+		projectDiscoveryTargetDependencies = append(projectDiscoveryTargetDependencies, lscpu.ID)
 	}
 
-	toRegister := make([]Dependency, 0, len(hostDependencies)+len(targetDependencies))
-	toRegister = append(toRegister, hostDependencies...)
-	toRegister = append(toRegister, targetDependencies...)
+	toRegister := make([]Dependency, 0, len(legacyHostDependencies)+len(legacyTargetDependencies))
+	toRegister = append(toRegister, legacyHostDependencies...)
+	toRegister = append(toRegister, legacyTargetDependencies...)
 
 	return DependencyGraph{
 		Registry: NewDependencyRegistry(toRegister),
 		// Compat with existing view data assembly
-		Host:   dependencyIDs(hostDependencies),
-		Target: dependencyIDs(targetDependencies),
+		Host:   dependencyIDs(legacyHostDependencies),
+		Target: dependencyIDs(legacyTargetDependencies),
 		Functionalities: []FunctionalityGroup{
 			{
 				Name:   "Deployment",
-				Host:   dependencyIDs(hostDependencies),
-				Target: dependencyIDs(targetDependencies),
+				Host:   []DependencyID{topo.ID, hostSSH.ID, hostDocker.ID, dockerCompose.ID},
+				Target: deploymentTargetDependencies,
+			},
+			{
+				Name:   "Project discovery",
+				Host:   []DependencyID{hostSSH.ID},
+				Target: projectDiscoveryTargetDependencies,
 			},
 		},
 	}
