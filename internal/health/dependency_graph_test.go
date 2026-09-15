@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/arm/topo/internal/health"
-	"github.com/arm/topo/internal/ssh"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,26 +49,6 @@ func TestDependencyRegistry(t *testing.T) {
 	})
 }
 
-func TestNewDependencyGraph(t *testing.T) {
-	t.Run("creates compatibility host and target groups", func(t *testing.T) {
-		target := ssh.NewDestination("pi@edge-a")
-
-		graph := health.NewDependencyGraph(health.DependencyGraphOptions{Target: &target})
-
-		assert.NotNil(t, graph.Registry)
-		assert.NotEmpty(t, graph.Host)
-		assert.NotEmpty(t, graph.Target)
-	})
-
-	t.Run("creates only the host group without a target", func(t *testing.T) {
-		graph := health.NewDependencyGraph(health.DependencyGraphOptions{})
-
-		assert.NotNil(t, graph.Registry)
-		assert.NotEmpty(t, graph.Host)
-		assert.Empty(t, graph.Target)
-	})
-}
-
 func TestDependencyGraph(t *testing.T) {
 	t.Run("Evaluate", func(t *testing.T) {
 		t.Run("reports successful dependencies in the group", func(t *testing.T) {
@@ -108,6 +87,28 @@ func TestDependencyGraph(t *testing.T) {
 			}
 			assert.Equal(t, want, got.Host)
 		})
+	})
+
+	t.Run("evaluates functionality group dependencies", func(t *testing.T) {
+		deployment := health.Dependency{ID: "deployment", Check: passingCheck}
+		graph := health.DependencyGraph{
+			Registry: health.NewDependencyRegistry([]health.Dependency{deployment}),
+			Functionalities: []health.FunctionalityGroup{{
+				Name: "Deployment",
+				Host: []health.DependencyID{deployment.ID},
+			}},
+		}
+
+		got := graph.Evaluate(context.Background())
+
+		want := []health.EvaluatedFunctionalityGroup{{
+			Name: "Deployment",
+			Host: []health.DependencyStatus{{
+				ID: deployment.ID, Label: deployment.Label, Result: deployment.Check(context.Background()),
+			}},
+			Target: []health.DependencyStatus{},
+		}}
+		assert.Equal(t, want, got.Functionalities)
 	})
 }
 

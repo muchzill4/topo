@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/arm/topo/internal/runner"
 	"github.com/arm/topo/internal/ssh"
 )
 
@@ -54,10 +55,17 @@ type DependencyGraphOptions struct {
 	AcceptHostKeys    bool
 }
 
+type FunctionalityGroup struct {
+	Name   string
+	Host   []DependencyID
+	Target []DependencyID
+}
+
 type DependencyGraph struct {
-	Registry *DependencyRegistry
-	Host     []DependencyID
-	Target   []DependencyID
+	Registry        *DependencyRegistry
+	Host            []DependencyID
+	Target          []DependencyID
+	Functionalities []FunctionalityGroup
 }
 
 type DependencyStatus struct {
@@ -66,32 +74,76 @@ type DependencyStatus struct {
 	Result DependencyCheckResult
 }
 
-type EvaluatedDependencyGraph struct {
+type EvaluatedFunctionalityGroup struct {
+	Name   string
 	Host   []DependencyStatus
 	Target []DependencyStatus
 }
 
+type EvaluatedDependencyGraph struct {
+	Host            []DependencyStatus
+	Target          []DependencyStatus
+	Functionalities []EvaluatedFunctionalityGroup
+}
+
 func NewDependencyGraph(options DependencyGraphOptions) DependencyGraph {
-	hostDependencies := hostRequiredDependencies(options.SkipVersionChecks)
-	dependencies := hostDependencies
-	graph := DependencyGraph{
-		Host: dependencyIDs(hostDependencies),
-	}
+	localRunner := runner.NewLocal()
+	topo := NewDependencyOnTopo(options.SkipVersionChecks)
+	hostSSH := NewDependencyOnSSH(localRunner)
+	hostDocker := NewDependencyOnDocker("host-docker", localRunner)
+	dockerCompose := NewDependencyOnDockerCompose(localRunner, hostDocker.ID)
+	hostDependencies := []Dependency{topo, hostSSH, hostDocker, dockerCompose}
 
+	targetDependencies := []Dependency(nil)
 	if options.Target != nil {
-		targetDependencies := targetRequiredDependencies(*options.Target, options.AcceptHostKeys)
-		dependencies = append(dependencies, targetDependencies...)
-		graph.Target = dependencyIDs(targetDependencies)
+		targetRunner := runner.For(*options.Target)
+		remoteTargetPrerequisites := []DependencyID(nil)
+		if !options.Target.IsPlainLocalhost() {
+			connectivity := NewConnectivityDependency(*options.Target, options.AcceptHostKeys)
+			targetDependencies = append(targetDependencies, connectivity)
+			remoteTargetPrerequisites = []DependencyID{connectivity.ID}
+		}
+		targetDocker := NewDependencyOnDocker("target-docker", targetRunner, remoteTargetPrerequisites...)
+		remoteproc := NewDependencyOnRemoteproc(targetRunner, remoteTargetPrerequisites...)
+		runtimePrerequisites := append([]DependencyID{targetDocker.ID, remoteproc.ID}, remoteTargetPrerequisites...)
+		remoteprocRuntime := NewDependencyOnRemoteprocRuntime(*options.Target, targetRunner, runtimePrerequisites...)
+		remoteprocRuntimeShim := NewDependencyOnRemoteprocRuntimeShim(*options.Target, targetRunner, runtimePrerequisites...)
+		lscpu := NewDependencyOnLscpu(targetRunner, remoteTargetPrerequisites...)
+		targetDependencies = append(targetDependencies, targetDocker, remoteproc, remoteprocRuntime, remoteprocRuntimeShim, lscpu)
 	}
 
-	graph.Registry = NewDependencyRegistry(dependencies)
-	return graph
+	toRegister := make([]Dependency, 0, len(hostDependencies)+len(targetDependencies))
+	toRegister = append(toRegister, hostDependencies...)
+	toRegister = append(toRegister, targetDependencies...)
+
+	return DependencyGraph{
+		Registry: NewDependencyRegistry(toRegister),
+		// Compat with existing view data assembly
+		Host:   dependencyIDs(hostDependencies),
+		Target: dependencyIDs(targetDependencies),
+		Functionalities: []FunctionalityGroup{
+			{
+				Name:   "Deployment",
+				Host:   dependencyIDs(hostDependencies),
+				Target: dependencyIDs(targetDependencies),
+			},
+		},
+	}
 }
 
 func (g DependencyGraph) Evaluate(ctx context.Context) EvaluatedDependencyGraph {
+	functionalities := make([]EvaluatedFunctionalityGroup, len(g.Functionalities))
+	for index, functionality := range g.Functionalities {
+		functionalities[index] = EvaluatedFunctionalityGroup{
+			Name:   functionality.Name,
+			Host:   g.evaluateDependencies(ctx, functionality.Host),
+			Target: g.evaluateDependencies(ctx, functionality.Target),
+		}
+	}
 	return EvaluatedDependencyGraph{
-		Host:   g.evaluateDependencies(ctx, g.Host),
-		Target: g.evaluateDependencies(ctx, g.Target),
+		Host:            g.evaluateDependencies(ctx, g.Host),
+		Target:          g.evaluateDependencies(ctx, g.Target),
+		Functionalities: functionalities,
 	}
 }
 

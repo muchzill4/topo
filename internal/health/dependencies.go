@@ -58,46 +58,9 @@ type Fix struct {
 	Command     string
 }
 
-func hostRequiredDependencies(skipVersionChecks bool) []Dependency {
-	topo := NewDependencyOnTopo(skipVersionChecks)
-	r := runner.NewLocal()
-	ssh := NewDependencyOnSSH(r)
-	docker := NewDependencyOnDocker(DependencyID("host-docker"), r)
-	dockerCompose := NewDependencyOnDockerCompose(r, docker.ID)
-	return []Dependency{topo, ssh, docker, dockerCompose}
-}
-
-func targetRequiredDependencies(target ssh.Destination, acceptNewHostKeys bool) []Dependency {
-	r := runner.For(target)
-
-	remoteTargetPrerequisites := []DependencyID(nil)
-	dependencies := []Dependency(nil)
-	if !target.IsPlainLocalhost() {
-		connectivity := NewConnectivityDependency(target, acceptNewHostKeys)
-		dependencies = append(dependencies, connectivity)
-		remoteTargetPrerequisites = []DependencyID{connectivity.ID}
-	}
-
-	docker := NewDependencyOnDocker(DependencyID("target-docker"), r, remoteTargetPrerequisites...)
-	remoteproc := NewDependencyOnRemoteproc(r, remoteTargetPrerequisites...)
-	remoteprocRuntime := NewDependencyOnRemoteprocRuntime(
-		target,
-		r,
-		append([]DependencyID{docker.ID, remoteproc.ID}, remoteTargetPrerequisites...)...,
-	)
-	remoteprocRuntimeShim := NewDependencyOnRemoteprocRuntimeShim(
-		target,
-		r,
-		append([]DependencyID{docker.ID, remoteproc.ID}, remoteTargetPrerequisites...)...,
-	)
-	lscpu := NewDependencyOnLscpu(r, remoteTargetPrerequisites...)
-
-	return append(dependencies, docker, remoteproc, remoteprocRuntime, remoteprocRuntimeShim, lscpu)
-}
-
 func NewDependencyOnSSH(r runner.Runner) Dependency {
 	return Dependency{
-		ID:    DependencyID("ssh"),
+		ID:    DependencyID("host-ssh"),
 		Label: "OpenSSH",
 		Check: func(ctx context.Context) DependencyCheckResult {
 			if err := r.BinaryExists(ctx, "ssh"); err != nil {
