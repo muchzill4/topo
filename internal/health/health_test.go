@@ -1,11 +1,24 @@
 package health_test
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/arm/topo/internal/health"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestCheck(t *testing.T) {
+	t.Run("returns a host-only report when target is not specified", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+
+		got := health.Check(ctx, health.DependencyGraphOptions{SkipVersionChecks: true})
+
+		assert.Nil(t, got.Target)
+	})
+}
 
 func TestToDependencyReport(t *testing.T) {
 	t.Run("returns successful dependency result", func(t *testing.T) {

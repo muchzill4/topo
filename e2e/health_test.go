@@ -33,7 +33,7 @@ func TestHealthCheck(t *testing.T) {
 	topo := buildBinary(t)
 
 	t.Run("accurately shows host health status", func(t *testing.T) {
-		out, err := runCheckHealth(topo, container)
+		out, err := runCheckHealth(topo, container, "--verbose")
 		require.NoError(t, err)
 
 		assert.Contains(t, out, " ✓ OpenSSH (ssh)")
@@ -44,7 +44,8 @@ func TestHealthCheck(t *testing.T) {
 		out, err := runCheckHealth(topo, container)
 		require.NoError(t, err)
 
-		assert.Contains(t, out, " ✓ Connectivity")
+		assert.Contains(t, out, "── Deployment: ready (✓ 6) ")
+		assert.Contains(t, out, "── Project discovery: ready (✓ 3) ")
 	})
 
 	t.Run("fails to connect to an invalid target", func(t *testing.T) {

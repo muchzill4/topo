@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/arm/topo/internal/health"
-	"github.com/arm/topo/internal/ssh"
 	"github.com/stretchr/testify/assert"
 )
 

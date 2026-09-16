@@ -2,6 +2,8 @@ package views
 
 import (
 	"bytes"
+	"fmt"
+	"strings"
 	"text/template"
 
 	"github.com/arm/topo/internal/health"
@@ -9,17 +11,16 @@ import (
 )
 
 type HealthReport struct {
-	Host       health.HostReport
-	Target     *health.TargetReport
+	Report     health.HealthReport
 	TargetHint string
+	Verbose    bool
 }
 
-func NewHealthReport(host health.HostReport, target *health.TargetReport, targetHint string) HealthReport {
-	return HealthReport{Host: host, Target: target, TargetHint: targetHint}
+func NewHealthReport(report health.HealthReport, targetHint string, verbose bool) HealthReport {
+	return HealthReport{Report: report, TargetHint: targetHint, Verbose: verbose}
 }
 
-const healthReportTemplate = `
-{{- define "checkRow" -}}
+const healthReportTemplate = `{{- define "checkRow" -}}
 {{ status .Status }}{{ .Name }}{{- if .Value }} ({{ .Value }}){{- end }}
 {{- if .Fix }}
    Fix:
@@ -30,20 +31,26 @@ const healthReportTemplate = `
   {{- end }}
 {{- end -}}
 {{- end -}}
-{{ sectionHeading "Host" }}
-{{- range $hostCheckRow := .Host.Dependencies }}
-{{ template "checkRow" $hostCheckRow }}
+{{- range .Report.Functionalities }}
+{{ sectionHeading (functionalityHeading .) }}
+{{- $host := checksToRender .Host $.Verbose }}
+{{- if $host }}
+{{ status (groupStatus $host) }}Host
+{{- range $host }}
+  {{ template "checkRow" . }}
 {{- end }}
-
-{{ sectionHeading "Target" }}
-{{- if .Target }}
-  {{- range $targetCheckRow := .Target.Dependencies }}
-{{ template "checkRow" $targetCheckRow }}
-  {{- end }}
-{{- else -}}
+{{- end }}
+{{- $target := checksToRender .Target $.Verbose }}
+{{- if $target }}
+{{ status (groupStatus $target) }}Target
+{{- range $target }}
+  {{ template "checkRow" . }}
+{{- end }}
+{{- end }}
+{{ end }}
+{{- if and (not .Report.Target) .TargetHint }}
 {{ .TargetHint }}
 {{- end }}
-
 `
 
 func (r HealthReport) AsPlain(isTTY bool) (string, error) {
@@ -52,6 +59,11 @@ func (r HealthReport) AsPlain(isTTY bool) (string, error) {
 	funcMap["sectionHeading"] = func(heading string) string {
 		return sectionHeading(heading, isTTY)
 	}
+	funcMap["checksToRender"] = checksToRender
+	funcMap["functionalityHeading"] = func(report health.FunctionalityReport) string {
+		return functionalityHeading(report, healthStatusSymbolFormatter(isTTY))
+	}
+	funcMap["groupStatus"] = groupStatus
 	tmpl, err := template.
 		New("healthcheck").
 		Funcs(funcMap).
@@ -64,11 +76,94 @@ func (r HealthReport) AsPlain(isTTY bool) (string, error) {
 		return "", err
 	}
 
-	return buf.String(), nil
+	return strings.TrimPrefix(buf.String(), "\n"), nil
+}
+
+func checksToRender(checks []health.DependencyReport, verbose bool) []health.DependencyReport {
+	if verbose {
+		return checks
+	}
+
+	failed := make([]health.DependencyReport, 0, len(checks))
+	for _, check := range checks {
+		if check.Status != health.CheckStatusOK {
+			failed = append(failed, check)
+		}
+	}
+	return failed
+}
+
+func groupStatus(checks []health.DependencyReport) health.CheckStatus {
+	status := health.CheckStatusOK
+	for _, check := range checks {
+		if check.Status == health.CheckStatusError {
+			return health.CheckStatusError
+		}
+		if check.Status == health.CheckStatusWarning {
+			status = health.CheckStatusWarning
+		} else if check.Status == health.CheckStatusInfo && status == health.CheckStatusOK {
+			status = health.CheckStatusInfo
+		}
+	}
+	return status
+}
+
+func functionalityHeading(report health.FunctionalityReport, statusSymbol func(health.CheckStatus) string) string {
+	readiness := "ready"
+	if report.Status == health.CheckStatusError {
+		readiness = "not ready"
+	}
+	return fmt.Sprintf("%s: %s (%s)", report.Name, readiness, compactCheckSummary(statusSymbol, report.Host, report.Target))
+}
+
+func compactCheckSummary(statusSymbol func(health.CheckStatus) string, groups ...[]health.DependencyReport) string {
+	counts := map[health.CheckStatus]int{}
+	for _, group := range groups {
+		for _, check := range group {
+			counts[check.Status]++
+		}
+	}
+
+	parts := make([]string, 0, len(counts))
+	for _, status := range []health.CheckStatus{health.CheckStatusOK, health.CheckStatusError, health.CheckStatusWarning, health.CheckStatusInfo} {
+		if count := counts[status]; count > 0 {
+			parts = append(parts, fmt.Sprintf("%s %d", statusSymbol(status), count))
+		}
+	}
+	if len(parts) == 0 {
+		return "no checks"
+	}
+	return joinCommaSeparated(parts)
+}
+
+func healthStatusSymbolFormatter(isTTY bool) func(health.CheckStatus) string {
+	return func(status health.CheckStatus) string {
+		symbol, color := "✗", term.Red
+		switch status {
+		case health.CheckStatusOK:
+			symbol, color = "✓", term.Green
+		case health.CheckStatusWarning:
+			symbol, color = "!", term.Yellow
+		case health.CheckStatusInfo:
+			symbol, color = "i", term.Blue
+		}
+		if !isTTY {
+			return symbol
+		}
+		return term.Color(color, symbol)
+	}
+}
+
+func joinCommaSeparated(parts []string) string {
+	result := parts[0]
+	for _, part := range parts[1:] {
+		result += ", " + part
+	}
+	return result
 }
 
 func (r HealthReport) AsJSON() (string, error) {
-	return asJSON(toJSONHealthReport(r))
+	return asJSON(toJSONHealthReport(r.Report))
 }
 
 func sectionHeading(heading string, isTTY bool) string {
@@ -122,7 +217,7 @@ type jsonFix struct {
 	Command     string `json:"command,omitempty"`
 }
 
-func toJSONHealthReport(report HealthReport) jsonHealthReport {
+func toJSONHealthReport(report health.HealthReport) jsonHealthReport {
 	jsonReport := jsonHealthReport{
 		Host: jsonHostReport{Dependencies: toJSONDependencyReports(report.Host.Dependencies)},
 	}

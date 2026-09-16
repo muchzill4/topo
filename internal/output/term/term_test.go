@@ -103,7 +103,7 @@ func TestPrintHeader(t *testing.T) {
 		const totalWidth = 60
 		prefix := "── "
 		suffix := " "
-		barWidth := totalWidth - len(prefix) - len("Hello") - len(suffix)
+		barWidth := totalWidth - 3 - len("Hello") - 1
 		expected := "\n" + prefix + "Hello" + suffix + strings.Repeat("─", barWidth) + "\n"
 
 		assert.Equal(t, expected, buf.String())
@@ -123,7 +123,15 @@ func TestPrintHeader(t *testing.T) {
 		header := term.Header("Hello", true)
 
 		assert.Contains(t, header, term.Color(term.Dim, "── "))
-		barWidth := 60 - len("── ") - len("Hello") - len(" ")
+		barWidth := 60 - 3 - len("Hello") - 1
 		assert.Contains(t, header, term.Color(term.Dim, " "+strings.Repeat("─", barWidth)))
+	})
+
+	t.Run("pads a description containing color codes", func(t *testing.T) {
+		description := term.Color(term.Green, strings.Repeat("x", 50))
+
+		header := term.Header(description, true)
+
+		assert.Contains(t, header, term.Color(term.Dim, " "+strings.Repeat("─", 6)))
 	})
 }
