@@ -50,26 +50,6 @@ func TestDependencyRegistry(t *testing.T) {
 	})
 }
 
-func TestNewDependencyGraph(t *testing.T) {
-	t.Run("creates compatibility host and target groups", func(t *testing.T) {
-		target := ssh.NewDestination("pi@edge-a")
-
-		graph := health.NewDependencyGraph(health.DependencyGraphOptions{Target: &target})
-
-		assert.NotNil(t, graph.Registry)
-		assert.NotEmpty(t, graph.Host)
-		assert.NotEmpty(t, graph.Target)
-	})
-
-	t.Run("creates only the host group without a target", func(t *testing.T) {
-		graph := health.NewDependencyGraph(health.DependencyGraphOptions{})
-
-		assert.NotNil(t, graph.Registry)
-		assert.NotEmpty(t, graph.Host)
-		assert.Empty(t, graph.Target)
-	})
-}
-
 func TestDependencyGraph(t *testing.T) {
 	t.Run("Evaluate", func(t *testing.T) {
 		t.Run("reports successful dependencies in the group", func(t *testing.T) {

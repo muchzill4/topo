@@ -49,9 +49,10 @@ func (r *DependencyRegistry) dependency(id DependencyID) *dependencyNode {
 }
 
 type DependencyGraphOptions struct {
-	Target            *ssh.Destination
-	SkipVersionChecks bool
-	AcceptHostKeys    bool
+	Target                  *ssh.Destination
+	MissingTargetFixMessage string
+	SkipVersionChecks       bool
+	AcceptHostKeys          bool
 }
 
 type DependencyGraph struct {
@@ -73,15 +74,11 @@ type EvaluatedDependencyGraph struct {
 
 func NewDependencyGraph(options DependencyGraphOptions) DependencyGraph {
 	hostDependencies := hostRequiredDependencies(options.SkipVersionChecks)
-	dependencies := hostDependencies
+	targetDependencies := targetRequiredDependencies(options.Target, options.AcceptHostKeys, options.MissingTargetFixMessage)
+	dependencies := append(hostDependencies, targetDependencies...)
 	graph := DependencyGraph{
-		Host: dependencyIDs(hostDependencies),
-	}
-
-	if options.Target != nil {
-		targetDependencies := targetRequiredDependencies(*options.Target, options.AcceptHostKeys)
-		dependencies = append(dependencies, targetDependencies...)
-		graph.Target = dependencyIDs(targetDependencies)
+		Host:   dependencyIDs(hostDependencies),
+		Target: dependencyIDs(targetDependencies),
 	}
 
 	graph.Registry = NewDependencyRegistry(dependencies)

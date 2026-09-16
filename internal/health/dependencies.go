@@ -67,30 +67,33 @@ func hostRequiredDependencies(skipVersionChecks bool) []Dependency {
 	return []Dependency{topo, ssh, docker, dockerCompose}
 }
 
-func targetRequiredDependencies(target ssh.Destination, acceptNewHostKeys bool) []Dependency {
-	r := runner.For(target)
-
-	remoteTargetPrerequisites := []DependencyID(nil)
-	dependencies := []Dependency(nil)
-	if !target.IsPlainLocalhost() {
-		connectivity := NewConnectivityDependency(target, acceptNewHostKeys)
-		dependencies = append(dependencies, connectivity)
-		remoteTargetPrerequisites = []DependencyID{connectivity.ID}
+func targetRequiredDependencies(target *ssh.Destination, acceptNewHostKeys bool, missingTargetFixMessage string) []Dependency {
+	if target == nil {
+		return []Dependency{NewMissingTargetDependency(missingTargetFixMessage)}
 	}
 
-	docker := NewDependencyOnDocker(DependencyID("target-docker"), r, remoteTargetPrerequisites...)
-	remoteproc := NewDependencyOnRemoteproc(r, remoteTargetPrerequisites...)
+	r := runner.For(*target)
+	prerequisites := []DependencyID(nil)
+	dependencies := []Dependency(nil)
+	if !target.IsPlainLocalhost() {
+		connectivity := NewConnectivityDependency(*target, acceptNewHostKeys)
+		prerequisites = []DependencyID{connectivity.ID}
+		dependencies = append(dependencies, connectivity)
+	}
+
+	docker := NewDependencyOnDocker(DependencyID("target-docker"), r, prerequisites...)
+	remoteproc := NewDependencyOnRemoteproc(r, prerequisites...)
 	remoteprocRuntime := NewDependencyOnRemoteprocRuntime(
-		target,
+		*target,
 		r,
-		append([]DependencyID{docker.ID, remoteproc.ID}, remoteTargetPrerequisites...)...,
+		append([]DependencyID{docker.ID, remoteproc.ID}, prerequisites...)...,
 	)
 	remoteprocRuntimeShim := NewDependencyOnRemoteprocRuntimeShim(
-		target,
+		*target,
 		r,
-		append([]DependencyID{docker.ID, remoteproc.ID}, remoteTargetPrerequisites...)...,
+		append([]DependencyID{docker.ID, remoteproc.ID}, prerequisites...)...,
 	)
-	lscpu := NewDependencyOnLscpu(r, remoteTargetPrerequisites...)
+	lscpu := NewDependencyOnLscpu(r, prerequisites...)
 
 	return append(dependencies, docker, remoteproc, remoteprocRuntime, remoteprocRuntimeShim, lscpu)
 }
@@ -222,12 +225,26 @@ func NewDependencyOnDockerCompose(r runner.Runner, prerequisites ...DependencyID
 	}
 }
 
+func NewMissingTargetDependency(missingTargetFixMessage string) Dependency {
+	return Dependency{
+		ID:    DependencyIDConnectivity,
+		Label: "Connectivity",
+		Check: func(context.Context) DependencyCheckResult {
+			failure := &DependencyCheckFailure{Severity: SeverityWarning, Message: "target not specified"}
+			if missingTargetFixMessage != "" {
+				failure.Fix = &Fix{Description: missingTargetFixMessage}
+			}
+			return DependencyCheckResult{Failure: failure}
+		},
+	}
+}
+
 func NewConnectivityDependency(target ssh.Destination, acceptNewHostKeys bool) Dependency {
-	sshRunner := runner.NewSSH(target)
 	return Dependency{
 		ID:    DependencyIDConnectivity,
 		Label: "Connectivity",
 		Check: func(ctx context.Context) DependencyCheckResult {
+			sshRunner := runner.NewSSH(target)
 			err := probe.SSHAuthentication(ctx, sshRunner, acceptNewHostKeys)
 			if err == nil {
 				return DependencyCheckResult{SuccessValue: target.String()}
