@@ -2,7 +2,10 @@ package health
 
 import (
 	"context"
+	"io"
 
+	"github.com/arm/topo/internal/deploy/docker"
+	"github.com/arm/topo/internal/probe"
 	"github.com/arm/topo/internal/runner"
 	"github.com/arm/topo/internal/ssh"
 )
@@ -113,19 +116,11 @@ func newProductionChecks(options HealthCheckOptions) Checks {
 		SSH:           NewDependencyOnSSH(localRunner),
 		Docker:        NewDependencyOnDocker(localRunner),
 		DockerCompose: NewDependencyOnDockerCompose(localRunner),
-		MissingTargetForDeployment: NewConnectivityDependency(
-			nil,
-			options.AcceptHostKeys,
-			"target not specified",
-			SeverityError,
-			options.MissingTargetFixMessage,
+		MissingTargetForDeployment: NewMissingTargetDependency(
+			"target not specified", SeverityError, options.MissingTargetFixMessage,
 		),
-		MissingTargetForProjectDiscovery: NewConnectivityDependency(
-			nil,
-			options.AcceptHostKeys,
-			"target not specified; cannot calculate project compatibility",
-			SeverityWarning,
-			options.MissingTargetFixMessage,
+		MissingTargetForProjectDiscovery: NewMissingTargetDependency(
+			"target not specified; cannot calculate project compatibility", SeverityWarning, options.MissingTargetFixMessage,
 		),
 	}
 	if options.Target == nil {
@@ -134,14 +129,23 @@ func newProductionChecks(options HealthCheckOptions) Checks {
 
 	target := *options.Target
 	targetRunner := runner.For(target)
-	checks.TargetDocker = NewDependencyOnRemoteDocker(target)
-	checks.Connectivity = NewConnectivityDependency(
-		options.Target,
-		options.AcceptHostKeys,
-		"target not specified",
-		SeverityError,
-		options.MissingTargetFixMessage,
-	)
+	host := docker.NewHostFromDestination(target)
+	checks.TargetDocker = NewDependencyOnRemoteDocker(localRunner, func(ctx context.Context) error {
+		return docker.RunCommand(ctx, io.Discard, host, "info")
+	})
+	sshRunner := runner.NewSSH(target)
+	checks.Connectivity = NewConnectivityDependency(target, ConnectivityOperations{
+		Authenticate: func(ctx context.Context) error {
+			return probe.SSHAuthentication(ctx, sshRunner, options.AcceptHostKeys)
+		},
+		KnownHostsEntry: func() (string, error) {
+			config, err := ssh.LoadConfig(target)
+			if err != nil {
+				return "", err
+			}
+			return config.AsKnownHostsEntry(), nil
+		},
+	})
 	checks.Lscpu = NewDependencyOnLscpu(targetRunner)
 	checks.Remoteproc = NewDependencyOnRemoteproc(targetRunner)
 	checks.RemoteprocRuntime = NewDependencyOnRemoteprocRuntime(target, targetRunner)
