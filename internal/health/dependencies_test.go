@@ -80,6 +80,38 @@ func TestNewDependencyOnSSHCheck(t *testing.T) {
 	})
 }
 
+func TestNewDependencyOnPodman(t *testing.T) {
+	t.Run("reports the working Podman engine", func(t *testing.T) {
+		dependency := health.NewDependencyOnPodman(&runner.Fake{
+			Binaries: []string{"podman"},
+			Commands: map[string]runner.FakeResult{
+				"podman info": {},
+			},
+		})
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, health.DependencyCheckResult{SuccessValue: "podman"}, got)
+	})
+
+	t.Run("suggests fixing Podman access when info fails", func(t *testing.T) {
+		dependency := health.NewDependencyOnPodman(&runner.Fake{
+			Binaries: []string{"podman"},
+			Commands: map[string]runner.FakeResult{
+				"podman info": {Err: errors.New("permission denied")},
+			},
+		})
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, &health.DependencyCheckFailure{
+			Severity: health.SeverityError,
+			Message:  "permission denied",
+			Fix:      &health.Fix{Description: "Ensure current user can run podman commands. See https://github.com/arm/topo#install-a-container-engine"},
+		}, got.Failure)
+	})
+}
+
 func TestNewDependencyOnDockerComposeCheck(t *testing.T) {
 	buildRunner := func(version string) runner.Runner {
 		return &runner.Fake{Commands: map[string]runner.FakeResult{

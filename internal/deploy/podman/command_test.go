@@ -28,6 +28,17 @@ func TestCommand(t *testing.T) {
 	})
 }
 
+func TestComposeProbeCommand(t *testing.T) {
+	t.Run("uses the deployment provider and endpoint configuration without a project", func(t *testing.T) {
+		command, err := podman.ComposeProbeCommand(t.Context(), podman.NewSocket("tcp://127.0.0.1:12345"), "ls")
+
+		require.NoError(t, err)
+		assert.Equal(t, []string{"podman", "compose", "ls"}, command.Args)
+		assert.Contains(t, command.Env, "PODMAN_COMPOSE_PROVIDER=docker-compose")
+		assert.Contains(t, command.Env, "DOCKER_HOST=tcp://127.0.0.1:12345")
+	})
+}
+
 func TestComposeCommand(t *testing.T) {
 	t.Run("sets args", func(t *testing.T) {
 		scope := project.Scope{ComposeFile: "compose.yaml"}

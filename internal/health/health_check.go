@@ -7,7 +7,15 @@ import (
 	"github.com/arm/topo/internal/ssh"
 )
 
+type Engine string
+
+const (
+	EngineDocker Engine = "docker"
+	EnginePodman Engine = "podman"
+)
+
 type HealthCheckOptions struct {
+	Engine                  Engine
 	Target                  *ssh.Destination
 	MissingTargetFixMessage string
 	SkipVersionChecks       bool
@@ -47,10 +55,24 @@ func NewHealthCheck(options HealthCheckOptions) HealthCheck {
 	dependencyTopo := registry.Register(NewDependencyOnTopo(options.SkipVersionChecks))
 	localRunner := runner.NewLocal()
 	dependencySSH := registry.Register(NewDependencyOnSSH(localRunner))
-	dependencyDocker := registry.Register(NewDependencyOnDocker(localRunner))
-	dependencyDockerCompose := registry.Register(NewDependencyOnDockerCompose(localRunner), dependencyDocker)
-	deploymentHostDependencies := []*DependencyNode{dependencyTopo, dependencySSH, dependencyDocker, dependencyDockerCompose}
+	deploymentHostDependencies := []*DependencyNode{dependencyTopo, dependencySSH}
 	projectDiscoveryHostDependencies := []*DependencyNode{dependencySSH}
+
+	engine := options.Engine
+	if engine == "" {
+		engine = EngineDocker
+	}
+	var deploymentEngine *DependencyNode
+	switch engine {
+	case EnginePodman:
+		dependencyPodman := registry.Register(NewDependencyOnPodman(localRunner))
+		deploymentEngine = registry.Register(NewDependencyOnPodmanCompose(), dependencyPodman)
+		deploymentHostDependencies = append(deploymentHostDependencies, dependencyPodman, deploymentEngine)
+	default:
+		dependencyDocker := registry.Register(NewDependencyOnDocker(localRunner))
+		deploymentEngine = registry.Register(NewDependencyOnDockerCompose(localRunner), dependencyDocker)
+		deploymentHostDependencies = append(deploymentHostDependencies, dependencyDocker, deploymentEngine)
+	}
 
 	targetPrerequisites := []*DependencyNode(nil)
 	deploymentTargetDependencies := []*DependencyNode(nil)
@@ -85,20 +107,27 @@ func NewHealthCheck(options HealthCheckOptions) HealthCheck {
 		projectDiscoveryTargetDependencies = append(projectDiscoveryTargetDependencies, dependencyConnectivity)
 	}
 	if options.Target != nil {
-		dependencyDocker := registry.Register(NewDependencyOnRemoteDocker(*options.Target), targetPrerequisites...)
 		targetRunner := runner.For(*options.Target)
-		dependencyRemoteproc := registry.Register(NewDependencyOnRemoteproc(targetRunner), targetPrerequisites...)
-		dependencyRemoteprocRuntime := registry.Register(
-			NewDependencyOnRemoteprocRuntime(*options.Target, targetRunner),
-			append([]*DependencyNode{dependencyDocker, dependencyRemoteproc}, targetPrerequisites...)...,
-		)
-		dependencyRemoteprocRuntimeShim := registry.Register(
-			NewDependencyOnRemoteprocRuntimeShim(*options.Target, targetRunner),
-			append([]*DependencyNode{dependencyDocker, dependencyRemoteproc}, targetPrerequisites...)...,
-		)
 		dependencyLscpu := registry.Register(NewDependencyOnLscpu(targetRunner), targetPrerequisites...)
-		deploymentTargetDependencies = append(deploymentTargetDependencies, dependencyDocker, dependencyRemoteproc, dependencyRemoteprocRuntime, dependencyRemoteprocRuntimeShim)
 		projectDiscoveryTargetDependencies = append(projectDiscoveryTargetDependencies, dependencyLscpu)
+
+		if engine == EnginePodman {
+			prerequisites := append([]*DependencyNode{deploymentEngine}, targetPrerequisites...)
+			dependencyPodmanTarget := registry.Register(NewDependencyOnTargetPodman(*options.Target), prerequisites...)
+			deploymentTargetDependencies = append(deploymentTargetDependencies, dependencyPodmanTarget)
+		} else {
+			dependencyDocker := registry.Register(NewDependencyOnRemoteDocker(*options.Target), targetPrerequisites...)
+			dependencyRemoteproc := registry.Register(NewDependencyOnRemoteproc(targetRunner), targetPrerequisites...)
+			dependencyRemoteprocRuntime := registry.Register(
+				NewDependencyOnRemoteprocRuntime(*options.Target, targetRunner),
+				append([]*DependencyNode{dependencyDocker, dependencyRemoteproc}, targetPrerequisites...)...,
+			)
+			dependencyRemoteprocRuntimeShim := registry.Register(
+				NewDependencyOnRemoteprocRuntimeShim(*options.Target, targetRunner),
+				append([]*DependencyNode{dependencyDocker, dependencyRemoteproc}, targetPrerequisites...)...,
+			)
+			deploymentTargetDependencies = append(deploymentTargetDependencies, dependencyDocker, dependencyRemoteproc, dependencyRemoteprocRuntime, dependencyRemoteprocRuntimeShim)
+		}
 	}
 
 	return HealthCheck{

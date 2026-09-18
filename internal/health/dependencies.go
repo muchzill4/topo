@@ -1,15 +1,18 @@
 package health
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"strings"
 
 	"github.com/arm/topo/internal/command"
 	"github.com/arm/topo/internal/deploy/docker"
+	"github.com/arm/topo/internal/deploy/podman"
 	"github.com/arm/topo/internal/output/logger"
 	"github.com/arm/topo/internal/probe"
 	"github.com/arm/topo/internal/runner"
@@ -169,6 +172,134 @@ func NewDependencyOnRemoteDocker(dest ssh.Destination) Dependency {
 			return DependencyCheckResult{SuccessValue: "docker"}
 		},
 	}
+}
+
+func NewDependencyOnPodman(r runner.Runner) Dependency {
+	return Dependency{
+		Label: "Container Engine",
+		Check: func(ctx context.Context) DependencyCheckResult {
+			if err := r.BinaryExists(ctx, "podman"); err != nil {
+				return DependencyCheckResult{Failure: &DependencyCheckFailure{
+					Severity: SeverityError,
+					Message:  err.Error(),
+					Fix:      &Fix{Description: "Install a supported container engine. See " + containerEngineInstallURL},
+				}}
+			}
+			if _, _, err := r.Run(ctx, "podman info"); err != nil {
+				return DependencyCheckResult{Failure: &DependencyCheckFailure{
+					Severity: SeverityError,
+					Message:  err.Error(),
+					Fix:      &Fix{Description: "Ensure current user can run podman commands. See " + containerEngineInstallURL},
+				}}
+			}
+			return DependencyCheckResult{SuccessValue: "podman"}
+		},
+	}
+}
+
+func NewDependencyOnPodmanCompose() Dependency {
+	return Dependency{
+		Label: "Podman Compose",
+		Check: func(ctx context.Context) DependencyCheckResult {
+			socketURL, err := podman.ResolveLocalComposeSocket(ctx)
+			if err != nil {
+				return podmanFailure(err)
+			}
+			socket := podman.NewSocket(socketURL)
+			if err := runPodmanCommand(podman.Command(ctx, socket, "info")); err != nil {
+				return podmanFailure(err)
+			}
+			if err := runPodmanComposeProbe(ctx, socket, "version"); err != nil {
+				return podmanFailure(err)
+			}
+			if err := runPodmanComposeProbe(ctx, socket, "ls"); err != nil {
+				return podmanFailure(err)
+			}
+			return DependencyCheckResult{SuccessValue: "docker-compose"}
+		},
+	}
+}
+
+func NewDependencyOnTargetPodman(target ssh.Destination) Dependency {
+	return Dependency{
+		Label: "Podman API",
+		Check: func(ctx context.Context) DependencyCheckResult {
+			if target.IsPlainLocalhost() {
+				return DependencyCheckResult{SuccessValue: "podman"}
+			}
+
+			if err := runner.NewSSH(target).BinaryExists(ctx, "podman"); err != nil {
+				return targetPodmanFailure(err, "Install Podman on the target. See "+containerEngineInstallURL)
+			}
+
+			remoteSocketPath, err := podman.ResolveRemoteSocketPath(ctx, target)
+			if err != nil {
+				return targetPodmanFailure(err, "Start the Podman API socket and ensure the SSH user can access it. See "+containerEngineInstallURL)
+			}
+
+			var tunnelOutput bytes.Buffer
+			tunnel, err := ssh.OpenTCPToUnixSocketTunnel(ctx, &tunnelOutput, target, remoteSocketPath)
+			if err != nil {
+				return targetPodmanFailure(withPodmanOutput(err, tunnelOutput.String()), "Ensure SSH permits local forwarding to the target Podman API socket.")
+			}
+
+			socket := podman.NewSocket(tunnel.SocketURL())
+			probeErr := runPodmanCommand(podman.Command(ctx, socket, "info"))
+			if probeErr == nil {
+				probeErr = runPodmanComposeProbe(ctx, socket, "ls")
+			}
+			closeErr := tunnel.Close()
+			if probeErr != nil {
+				return targetPodmanFailure(probeErr, fmt.Sprintf("Ensure the Podman API socket at %s is functional and accessible to the SSH user.", remoteSocketPath))
+			}
+			if closeErr != nil {
+				return targetPodmanFailure(fmt.Errorf("failed to close remote Podman socket tunnel: %w", closeErr), "Close the failed Podman SSH tunnel, then try again.")
+			}
+			return DependencyCheckResult{SuccessValue: "podman"}
+		},
+	}
+}
+
+func podmanFailure(err error) DependencyCheckResult {
+	return DependencyCheckResult{Failure: &DependencyCheckFailure{
+		Severity: SeverityError,
+		Message:  err.Error(),
+		Fix:      &Fix{Description: "Ensure Podman, its API socket, and the docker-compose provider are available. See " + containerEngineInstallURL},
+	}}
+}
+
+func targetPodmanFailure(err error, fix string) DependencyCheckResult {
+	return DependencyCheckResult{Failure: &DependencyCheckFailure{
+		Severity: SeverityError,
+		Message:  err.Error(),
+		Fix:      &Fix{Description: fix},
+	}}
+}
+
+func runPodmanCommand(cmd *exec.Cmd) error {
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	if err := cmd.Run(); err != nil {
+		return withPodmanOutput(command.NewError(cmd, err), output.String())
+	}
+	return nil
+}
+
+func withPodmanOutput(err error, output string) error {
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return err
+	}
+	return fmt.Errorf("%w: %s", err, output)
+}
+
+func runPodmanComposeProbe(ctx context.Context, socket podman.Socket, args ...string) error {
+	cmd, err := podman.ComposeProbeCommand(ctx, socket, args...)
+	if err != nil {
+		return err
+	}
+	return runPodmanCommand(cmd)
 }
 
 func NewDependencyOnDockerCompose(r runner.Runner) Dependency {
