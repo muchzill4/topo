@@ -33,10 +33,10 @@ type TargetChecks struct {
 	Specified             Dependency
 	Connectivity          Dependency
 	Docker                Dependency
-	Hardware              Dependency
 	Remoteproc            Dependency
 	RemoteprocRuntime     Dependency
 	RemoteprocRuntimeShim Dependency
+	Hardware              Dependency
 }
 
 type HealthCheck struct {
@@ -90,12 +90,12 @@ func (h ReadinessCheck) Evaluate(ctx context.Context) EvaluatedReadinessCheck {
 func (h ReadinessCheck) evaluateDependencies(ctx context.Context, references []*DependencyNode) []EvaluatedDependency {
 	statuses := make([]EvaluatedDependency, 0, len(references))
 	for _, reference := range references {
-		result, checked := h.Registry.Check(ctx, reference)
-		if !checked {
+		evaluation := h.Registry.Check(ctx, reference)
+		if evaluation.State != EvaluationExecuted {
 			continue
 		}
 		dependency := reference.Dependency()
-		statuses = append(statuses, EvaluatedDependency{ID: dependency.ID, Label: dependency.Label, Result: result})
+		statuses = append(statuses, EvaluatedDependency{ID: dependency.ID, Label: dependency.Label, Result: evaluation.Result})
 	}
 	return statuses
 }
@@ -142,10 +142,10 @@ func newProductionChecks(options HealthCheckOptions) Checks {
 			Docker: NewDependencyOnRemoteDocker(options.Target, localRunner, func(ctx context.Context, target ssh.Destination) error {
 				return docker.RunCommand(ctx, io.Discard, docker.NewHostFromDestination(target), "info")
 			}),
-			Hardware:              NewDependencyOnLscpu(options.Target, runner.For),
 			Remoteproc:            NewDependencyOnRemoteproc(options.Target, runner.For),
 			RemoteprocRuntime:     NewDependencyOnRemoteprocRuntime(options.Target, runner.For),
 			RemoteprocRuntimeShim: NewDependencyOnRemoteprocRuntimeShim(options.Target, runner.For),
+			Hardware:              NewDependencyOnLscpu(options.Target, runner.For),
 		},
 	}
 }
@@ -156,10 +156,13 @@ type hostNodes struct {
 }
 
 func registerHostChecks(registry *DependencyRegistry, checks HostChecks) hostNodes {
-	topo := registry.Register(checks.Topo)
-	ssh := registry.Register(checks.SSH)
-	docker := registry.Register(checks.Docker)
-	compose := registry.Register(checks.DockerCompose, docker)
+	topo := registry.Register(checks.Topo, DependencyRequirements{})
+	ssh := registry.Register(checks.SSH, DependencyRequirements{})
+	docker := registry.Register(checks.Docker, DependencyRequirements{})
+	compose := registry.Register(
+		checks.DockerCompose,
+		DependencyRequirements{Prerequisites: []*DependencyNode{docker}},
+	)
 
 	return hostNodes{
 		deployment: []*DependencyNode{topo, ssh, docker, compose},
@@ -173,22 +176,35 @@ type targetNodes struct {
 }
 
 func registerTargetChecks(registry *DependencyRegistry, checks TargetChecks) targetNodes {
-	specified := registry.Register(checks.Specified)
-	access := registry.Register(checks.Connectivity, specified)
-	hardware := registry.Register(checks.Hardware, access)
+	specified := registry.Register(checks.Specified, DependencyRequirements{})
+	access := registry.Register(
+		checks.Connectivity,
+		DependencyRequirements{Prerequisites: []*DependencyNode{specified}},
+	)
+	docker := registry.Register(
+		checks.Docker,
+		DependencyRequirements{Prerequisites: []*DependencyNode{access}},
+	)
+	remoteproc := registry.Register(
+		checks.Remoteproc,
+		DependencyRequirements{Prerequisites: []*DependencyNode{access}},
+	)
+	runtimePrerequisites := []*DependencyNode{docker, remoteproc, access}
+	runtime := registry.Register(
+		checks.RemoteprocRuntime,
+		DependencyRequirements{Prerequisites: runtimePrerequisites},
+	)
+	shim := registry.Register(
+		checks.RemoteprocRuntimeShim,
+		DependencyRequirements{Prerequisites: runtimePrerequisites},
+	)
+	hardware := registry.Register(
+		checks.Hardware,
+		DependencyRequirements{Prerequisites: []*DependencyNode{access}},
+	)
 
 	return targetNodes{
-		deployment: append([]*DependencyNode{specified, access}, registerTargetContainerEngineChecks(registry, checks, access)...),
+		deployment: []*DependencyNode{specified, access, docker, remoteproc, runtime, shim},
 		discovery:  []*DependencyNode{specified, access, hardware},
 	}
-}
-
-func registerTargetContainerEngineChecks(registry *DependencyRegistry, checks TargetChecks, prerequisites ...*DependencyNode) []*DependencyNode {
-	docker := registry.Register(checks.Docker, prerequisites...)
-	remoteproc := registry.Register(checks.Remoteproc, prerequisites...)
-	runtimePrerequisites := append([]*DependencyNode{docker, remoteproc}, prerequisites...)
-	runtime := registry.Register(checks.RemoteprocRuntime, runtimePrerequisites...)
-	shim := registry.Register(checks.RemoteprocRuntimeShim, runtimePrerequisites...)
-
-	return []*DependencyNode{docker, remoteproc, runtime, shim}
 }
