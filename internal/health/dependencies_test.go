@@ -335,3 +335,276 @@ func TestRemoteprocRuntimeShimDependency(t *testing.T) {
 		}}, got)
 	})
 }
+
+const podmanInstallURL = "https://github.com/arm/topo#install-a-container-engine"
+
+func TestPodmanDependency(t *testing.T) {
+	t.Run("succeeds after finding the binary and probing info", func(t *testing.T) {
+		dependency := health.NewDependencyOnPodman(&runner.Fake{
+			Binaries: []string{"podman"},
+			Commands: map[string]runner.FakeResult{"podman info": {}},
+		})
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, health.DependencyCheckResult{SuccessValue: "podman"}, got)
+	})
+
+	t.Run("stops when the binary is missing", func(t *testing.T) {
+		dependency := health.NewDependencyOnPodman(&runner.Fake{})
+
+		got := dependency.Check(t.Context())
+
+		want := failure(`"podman" not found in $PATH`, "Install a supported container engine. See "+podmanInstallURL)
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("reports an info failure", func(t *testing.T) {
+		dependency := health.NewDependencyOnPodman(&runner.Fake{
+			Binaries: []string{"podman"},
+			Commands: map[string]runner.FakeResult{"podman info": {Err: errors.New("permission denied")}},
+		})
+
+		got := dependency.Check(t.Context())
+
+		want := failure("permission denied", "Ensure current user can run podman commands. See "+podmanInstallURL)
+		assert.Equal(t, want, got)
+	})
+}
+
+func TestNewDependencyOnPodmanCompose(t *testing.T) {
+	t.Run("reports an available Compose provider", func(t *testing.T) {
+		calls := []string{}
+		dependency := health.NewDependencyOnPodmanCompose(composeOperations(&calls, nil))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, health.DependencyCheckResult{SuccessValue: "docker-compose"}, got)
+		assert.Equal(t, []string{"compose:version"}, calls)
+	})
+
+	t.Run("reports an unavailable Compose provider", func(t *testing.T) {
+		calls := []string{}
+		dependency := health.NewDependencyOnPodmanCompose(composeOperations(&calls, errors.New("version failed")))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, failure("version failed", composeFix), got)
+		assert.Equal(t, []string{"compose:version"}, calls)
+	})
+}
+
+func TestNewDependencyOnRemotePodman(t *testing.T) {
+	t.Run("runs probes in order and closes the tunnel", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("user@example.com")
+		dependency := health.NewDependencyOnRemotePodman(&target, targetOperations(&calls, nil, nil, nil, nil, nil))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, health.DependencyCheckResult{SuccessValue: "podman"}, got)
+		assert.Equal(t, []string{"host-binary:podman", "compose:version", "binary:podman", "resolve", "open:/run/podman.sock", "info:tunnel", "compose:ls", "close"}, calls)
+	})
+
+	t.Run("reports a missing host Podman binary", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("user@example.com")
+		operations := targetOperations(&calls, nil, nil, nil, nil, nil)
+		operations.HostRunner = recordingRunner{calls: &calls, prefix: "host-", binaryErr: errors.New("podman missing")}
+		dependency := health.NewDependencyOnRemotePodman(&target, operations)
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, failure("cannot probe from host: podman missing", "Install a supported container engine on the host. See "+podmanInstallURL), got)
+		assert.Equal(t, []string{"host-binary:podman"}, calls)
+	})
+
+	t.Run("reports an unavailable host Compose provider", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("user@example.com")
+		operations := targetOperations(&calls, nil, nil, nil, nil, nil)
+		operations.Commands.ComposeVersion = func(context.Context) error {
+			calls = append(calls, "compose:version")
+			return errors.New("provider missing")
+		}
+		dependency := health.NewDependencyOnRemotePodman(&target, operations)
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, failure("cannot probe from host: provider missing", "Install the docker-compose provider on the host. See "+podmanInstallURL), got)
+		assert.Equal(t, []string{"host-binary:podman", "compose:version"}, calls)
+	})
+
+	t.Run("stops when Podman is missing", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("user@example.com")
+		dependency := health.NewDependencyOnRemotePodman(&target, targetOperations(&calls, errors.New("podman missing"), nil, nil, nil, nil))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, failure("podman missing", "Install Podman on the target. See "+podmanInstallURL), got)
+		assert.Equal(t, []string{"host-binary:podman", "compose:version", "binary:podman"}, calls)
+	})
+
+	t.Run("stops when remote socket resolution fails", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("user@example.com")
+		dependency := health.NewDependencyOnRemotePodman(&target, targetOperations(&calls, nil, errors.New("no remote socket"), nil, nil, nil))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, failure("no remote socket", "Start the Podman API socket and ensure the SSH user can access it. See "+podmanInstallURL), got)
+		assert.Equal(t, []string{"host-binary:podman", "compose:version", "binary:podman", "resolve"}, calls)
+	})
+
+	t.Run("reports a tunnel open failure", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("user@example.com")
+		dependency := health.NewDependencyOnRemotePodman(&target, targetOperations(&calls, nil, nil, errors.New("forwarding denied"), nil, nil))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, failure("forwarding denied", "Ensure SSH permits local forwarding to the target Podman API socket."), got)
+		assert.Equal(t, []string{"host-binary:podman", "compose:version", "binary:podman", "resolve", "open:/run/podman.sock"}, calls)
+	})
+
+	t.Run("closes the tunnel after an info failure", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("user@example.com")
+		dependency := health.NewDependencyOnRemotePodman(&target, targetOperations(&calls, nil, nil, nil, errors.New("info failed"), nil))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, failure("info failed", "Ensure the Podman API socket at /run/podman.sock is functional and accessible to the SSH user."), got)
+		assert.Equal(t, []string{"host-binary:podman", "compose:version", "binary:podman", "resolve", "open:/run/podman.sock", "info:tunnel", "close"}, calls)
+	})
+
+	t.Run("closes the tunnel after a Compose failure", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("user@example.com")
+		dependency := health.NewDependencyOnRemotePodman(&target, targetOperations(&calls, nil, nil, nil, nil, errors.New("compose failed")))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, failure("compose failed", "Ensure the Podman API socket at /run/podman.sock is functional and accessible to the SSH user."), got)
+		assert.Equal(t, []string{"host-binary:podman", "compose:version", "binary:podman", "resolve", "open:/run/podman.sock", "info:tunnel", "compose:ls", "close"}, calls)
+	})
+
+	t.Run("reports a cleanup failure after successful probes", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("user@example.com")
+		dependency := health.NewDependencyOnRemotePodman(&target, targetOperations(&calls, nil, nil, nil, nil, nil, errors.New("close failed")))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, failure("failed to close remote Podman socket tunnel: close failed", "Close the failed Podman SSH tunnel, then try again."), got)
+	})
+
+	t.Run("prefers a probe failure over a cleanup failure", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("user@example.com")
+		dependency := health.NewDependencyOnRemotePodman(&target, targetOperations(&calls, nil, nil, nil, errors.New("info failed"), nil, errors.New("close failed")))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, failure("info failed", "Ensure the Podman API socket at /run/podman.sock is functional and accessible to the SSH user."), got)
+		assert.Equal(t, []string{"host-binary:podman", "compose:version", "binary:podman", "resolve", "open:/run/podman.sock", "info:tunnel", "close"}, calls)
+	})
+
+	t.Run("does not invoke remote operations for plain localhost", func(t *testing.T) {
+		calls := []string{}
+		target := ssh.NewDestination("localhost")
+		dependency := health.NewDependencyOnRemotePodman(&target, targetOperations(&calls, nil, nil, nil, nil, nil))
+
+		got := dependency.Check(t.Context())
+
+		assert.Equal(t, health.DependencyCheckResult{SuccessValue: "podman"}, got)
+		assert.Equal(t, []string{"host-binary:podman", "compose:version"}, calls)
+	})
+}
+
+const composeFix = "Ensure Podman, its API socket, and the docker-compose provider are available. See " + podmanInstallURL
+
+func failure(message, fix string) health.DependencyCheckResult {
+	return health.DependencyCheckResult{Failure: &health.DependencyCheckFailure{
+		Severity: health.SeverityError,
+		Message:  message,
+		Fix:      &health.Fix{Description: fix},
+	}}
+}
+
+func composeOperations(calls *[]string, versionErr error) health.PodmanComposeOperations {
+	return health.PodmanComposeOperations{
+		Commands: health.PodmanCommands{
+			ComposeVersion: func(context.Context) error {
+				*calls = append(*calls, "compose:version")
+				return versionErr
+			},
+		},
+	}
+}
+
+func targetOperations(calls *[]string, binaryErr, resolveErr, openErr, infoErr, composeErr error, closeErr ...error) health.TargetPodmanOperations {
+	return health.TargetPodmanOperations{
+		HostRunner: recordingRunner{calls: calls, prefix: "host-"},
+		Runner: func(ssh.Destination) runner.Runner {
+			return recordingRunner{calls: calls, binaryErr: binaryErr}
+		},
+		ResolveRemoteSocket: func(context.Context, ssh.Destination) (string, error) {
+			*calls = append(*calls, "resolve")
+			return "/run/podman.sock", resolveErr
+		},
+		OpenTunnel: func(_ context.Context, _ ssh.Destination, socketPath string) (health.SocketTunnel, error) {
+			*calls = append(*calls, "open:"+socketPath)
+			if openErr != nil {
+				return nil, openErr
+			}
+			var err error
+			if len(closeErr) > 0 {
+				err = closeErr[0]
+			}
+			return recordingTunnel{calls: calls, closeErr: err}, nil
+		},
+		Commands: health.PodmanCommands{
+			ComposeVersion: func(context.Context) error {
+				*calls = append(*calls, "compose:version")
+				return nil
+			},
+			Info: func(_ context.Context, socketURL string) error {
+				*calls = append(*calls, "info:"+socketURL)
+				return infoErr
+			},
+			Compose: func(_ context.Context, socketURL string, args ...string) error {
+				*calls = append(*calls, "compose:"+args[0])
+				return composeErr
+			},
+		},
+	}
+}
+
+type recordingRunner struct {
+	calls     *[]string
+	prefix    string
+	binaryErr error
+}
+
+func (r recordingRunner) BinaryExists(_ context.Context, binary string) error {
+	*r.calls = append(*r.calls, r.prefix+"binary:"+binary)
+	return r.binaryErr
+}
+
+func (recordingRunner) Run(context.Context, string) (string, string, error) { return "", "", nil }
+func (r recordingRunner) RunWithStdin(ctx context.Context, command string, _ []byte) (string, string, error) {
+	return r.Run(ctx, command)
+}
+
+type recordingTunnel struct {
+	calls    *[]string
+	closeErr error
+}
+
+func (recordingTunnel) SocketURL() string { return "tunnel" }
+func (t recordingTunnel) Close() error {
+	*t.calls = append(*t.calls, "close")
+	return t.closeErr
+}
