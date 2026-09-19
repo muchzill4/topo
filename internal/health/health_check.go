@@ -189,15 +189,12 @@ func registerTargetChecks(registry *DependencyRegistry, checks TargetChecks) tar
 		checks.Remoteproc,
 		DependencyRequirements{Prerequisites: []*DependencyNode{access}},
 	)
-	runtimePrerequisites := []*DependencyNode{docker, remoteproc, access}
-	runtime := registry.Register(
-		checks.RemoteprocRuntime,
-		DependencyRequirements{Prerequisites: runtimePrerequisites},
-	)
-	shim := registry.Register(
-		checks.RemoteprocRuntimeShim,
-		DependencyRequirements{Prerequisites: runtimePrerequisites},
-	)
+	runtimeRequirements := DependencyRequirements{
+		Conditions:    []*DependencyNode{remoteproc},
+		Prerequisites: []*DependencyNode{docker, access},
+	}
+	runtime := registry.Register(checks.RemoteprocRuntime, runtimeRequirements)
+	shim := registry.Register(checks.RemoteprocRuntimeShim, runtimeRequirements)
 	hardware := registry.Register(
 		checks.Hardware,
 		DependencyRequirements{Prerequisites: []*DependencyNode{access}},
