@@ -59,7 +59,8 @@ func TestAssembleHealthCheck(t *testing.T) {
 		}
 		return health.Checks{
 			Host: health.HostChecks{
-				Topo: passing("Topo"), SSH: passing("OpenSSH"), Docker: passing("Container Engine"), DockerCompose: passing("Docker Compose"),
+				Topo: passing("Topo"), SSH: passing("OpenSSH"), DockerCLI: passing("Docker CLI"),
+				Docker: passing("Container Engine"), DockerCompose: passing("Docker Compose"),
 			},
 			Target: health.TargetChecks{
 				Specified: passing("Target specified"), Connectivity: passing("Target access"), Docker: passing("Target Docker"),
@@ -83,6 +84,42 @@ func TestAssembleHealthCheck(t *testing.T) {
 		}}
 		assert.Equal(t, want, targetDependencies(got.Deployment.Dependencies))
 		assert.Equal(t, want, targetDependencies(got.ProjectDiscovery.Dependencies))
+	})
+
+	t.Run("does not probe the target engine when Docker CLI is unavailable", func(t *testing.T) {
+		checks := newPassingChecks()
+		checks.Host.DockerCLI.Check = failingCheck
+		targetDockerChecks := 0
+		checks.Target.Docker.Check = func(context.Context) health.DependencyCheckResult {
+			targetDockerChecks++
+			return passingCheck(context.Background())
+		}
+		healthCheck := health.AssembleHealthCheck(checks)
+
+		healthCheck.Evaluate(context.Background())
+
+		assert.Zero(t, targetDockerChecks)
+	})
+
+	t.Run("runs target engine and Compose checks when the host daemon fails", func(t *testing.T) {
+		checks := newPassingChecks()
+		checks.Host.Docker.Check = failingCheck
+		composeChecks := 0
+		checks.Host.DockerCompose.Check = func(context.Context) health.DependencyCheckResult {
+			composeChecks++
+			return passingCheck(context.Background())
+		}
+		targetDockerChecks := 0
+		checks.Target.Docker.Check = func(context.Context) health.DependencyCheckResult {
+			targetDockerChecks++
+			return passingCheck(context.Background())
+		}
+		healthCheck := health.AssembleHealthCheck(checks)
+
+		healthCheck.Evaluate(context.Background())
+
+		assert.Equal(t, 1, composeChecks)
+		assert.Equal(t, 1, targetDockerChecks)
 	})
 
 	t.Run("runs target checks after their prerequisites succeed", func(t *testing.T) {
