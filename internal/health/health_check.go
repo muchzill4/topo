@@ -25,6 +25,7 @@ type Checks struct {
 type HostChecks struct {
 	Topo          Dependency
 	SSH           Dependency
+	DockerCLI     Dependency
 	Docker        Dependency
 	DockerCompose Dependency
 }
@@ -51,7 +52,7 @@ func NewHealthCheck(options HealthCheckOptions) HealthCheck {
 func AssembleHealthCheck(checks Checks) HealthCheck {
 	registry := NewDependencyRegistry()
 	hostNodes := registerHostChecks(registry, checks.Host)
-	targetNodes := registerTargetChecks(registry, checks.Target)
+	targetNodes := registerTargetChecks(registry, checks.Target, hostNodes.dockerCLI)
 
 	return HealthCheck{
 		Deployment: ReadinessCheck{
@@ -117,6 +118,7 @@ func newProductionChecks(options HealthCheckOptions) Checks {
 		Host: HostChecks{
 			Topo:          NewDependencyOnTopo(options.SkipVersionChecks),
 			SSH:           NewDependencyOnSSH(localRunner),
+			DockerCLI:     NewDependencyOnDockerCLI(localRunner),
 			Docker:        NewDependencyOnDocker(localRunner),
 			DockerCompose: NewDependencyOnDockerCompose(localRunner),
 		},
@@ -134,7 +136,7 @@ func newProductionChecks(options HealthCheckOptions) Checks {
 					return config.AsKnownHostsEntry(), nil
 				},
 			}),
-			Docker: NewDependencyOnRemoteDocker(options.Target, localRunner, func(ctx context.Context, target ssh.Destination) error {
+			Docker: NewDependencyOnRemoteDocker(options.Target, func(ctx context.Context, target ssh.Destination) error {
 				return docker.RunCommand(ctx, io.Discard, docker.NewHostFromDestination(target), "info")
 			}),
 			Remoteproc:            NewDependencyOnRemoteproc(options.Target, runner.For),
@@ -146,6 +148,7 @@ func newProductionChecks(options HealthCheckOptions) Checks {
 }
 
 type hostNodes struct {
+	dockerCLI  *DependencyNode
 	deployment []*DependencyNode
 	discovery  []*DependencyNode
 }
@@ -153,15 +156,21 @@ type hostNodes struct {
 func registerHostChecks(registry *DependencyRegistry, checks HostChecks) hostNodes {
 	topo := registry.Register(checks.Topo, DependencyRequirements{}, DependencyScopeHost)
 	ssh := registry.Register(checks.SSH, DependencyRequirements{}, DependencyScopeHost)
-	docker := registry.Register(checks.Docker, DependencyRequirements{}, DependencyScopeHost)
+	dockerCLI := registry.Register(checks.DockerCLI, DependencyRequirements{}, DependencyScopeHost)
+	docker := registry.Register(
+		checks.Docker,
+		DependencyRequirements{Prerequisites: []*DependencyNode{dockerCLI}},
+		DependencyScopeHost,
+	)
 	compose := registry.Register(
 		checks.DockerCompose,
-		DependencyRequirements{Prerequisites: []*DependencyNode{docker}},
+		DependencyRequirements{Prerequisites: []*DependencyNode{dockerCLI}},
 		DependencyScopeHost,
 	)
 
 	return hostNodes{
-		deployment: []*DependencyNode{topo, ssh, docker, compose},
+		dockerCLI:  dockerCLI,
+		deployment: []*DependencyNode{topo, ssh, dockerCLI, docker, compose},
 		discovery:  []*DependencyNode{ssh},
 	}
 }
@@ -171,7 +180,7 @@ type targetNodes struct {
 	discovery  []*DependencyNode
 }
 
-func registerTargetChecks(registry *DependencyRegistry, checks TargetChecks) targetNodes {
+func registerTargetChecks(registry *DependencyRegistry, checks TargetChecks, dockerCLI *DependencyNode) targetNodes {
 	specified := registry.Register(checks.Specified, DependencyRequirements{}, DependencyScopeTarget)
 	access := registry.Register(
 		checks.Connectivity,
@@ -180,7 +189,7 @@ func registerTargetChecks(registry *DependencyRegistry, checks TargetChecks) tar
 	)
 	docker := registry.Register(
 		checks.Docker,
-		DependencyRequirements{Prerequisites: []*DependencyNode{access}},
+		DependencyRequirements{Prerequisites: []*DependencyNode{dockerCLI, access}},
 		DependencyScopeTarget,
 	)
 	remoteproc := registry.Register(
