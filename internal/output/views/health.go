@@ -12,8 +12,8 @@ import (
 
 type HealthReport struct {
 	TargetDetails    health.TargetDetails
-	Deployment       health.ReadinessReport
-	ProjectDiscovery health.ReadinessReport
+	Deployment       []health.DependencyReport
+	ProjectDiscovery []health.DependencyReport
 }
 
 const functionalityHealthReportTemplate = `
@@ -31,12 +31,12 @@ const functionalityHealthReportTemplate = `
 
 {{- define "functionality" -}}
 {{ functionalityHeading .Name .Report }}
-{{ status (dependencyGroupStatus .Report.Host) }}Host
-{{- range .Report.Host }}
+{{ status (dependencyGroupStatus .Host) }}Host
+{{- range .Host }}
 {{ template "checkRow" . }}
 {{- end }}
-{{ status (dependencyGroupStatus .Report.Target) }}Target
-{{- range .Report.Target }}
+{{ status (dependencyGroupStatus .Target) }}Target
+{{- range .Target }}
 {{ template "checkRow" . }}
 {{- end }}
 {{- end -}}
@@ -48,16 +48,23 @@ const functionalityHealthReportTemplate = `
 
 type functionalityTemplateData struct {
 	Name   string
-	Report health.ReadinessReport
+	Report []health.DependencyReport
+	Host   []health.DependencyReport
+	Target []health.DependencyReport
 }
 
 func (r HealthReport) AsPlain(isTTY bool) (string, error) {
 	funcMap := getFuncMap(isTTY)
 	funcMap["status"] = healthStatusFormatter(isTTY)
-	funcMap["buildFunctionalityTemplateData"] = func(name string, report health.ReadinessReport) functionalityTemplateData {
-		return functionalityTemplateData{Name: name, Report: report}
+	funcMap["buildFunctionalityTemplateData"] = func(name string, report []health.DependencyReport) functionalityTemplateData {
+		return functionalityTemplateData{
+			Name:   name,
+			Report: report,
+			Host:   dependenciesInScope(report, health.DependencyScopeHost),
+			Target: dependenciesInScope(report, health.DependencyScopeTarget),
+		}
 	}
-	funcMap["functionalityHeading"] = func(name string, report health.ReadinessReport) string {
+	funcMap["functionalityHeading"] = func(name string, report []health.DependencyReport) string {
 		return functionalityHeading(name, report, isTTY)
 	}
 	funcMap["dependencyGroupStatus"] = dependencyGroupStatus
@@ -73,9 +80,12 @@ func (r HealthReport) AsPlain(isTTY bool) (string, error) {
 }
 
 func (r HealthReport) AsJSON() (string, error) {
-	targetDependencies := legacyTargetDependencies(r.Deployment.Target, r.ProjectDiscovery.Target)
+	targetDependencies := legacyTargetDependencies(
+		dependenciesInScope(r.Deployment, health.DependencyScopeTarget),
+		dependenciesInScope(r.ProjectDiscovery, health.DependencyScopeTarget),
+	)
 	return asJSON(toJSONHealthReport(legacyHealthReport{
-		HostDependencies:   r.Deployment.Host,
+		HostDependencies:   dependenciesInScope(r.Deployment, health.DependencyScopeHost),
 		TargetDependencies: targetDependencies,
 		TargetDetails:      r.TargetDetails,
 	}))
@@ -97,7 +107,7 @@ func legacyTargetDependencies(deployment, projectDiscovery []health.DependencyRe
 	return targetDependencies
 }
 
-func functionalityHeading(name string, report health.ReadinessReport, isTTY bool) string {
+func functionalityHeading(name string, report []health.DependencyReport, isTTY bool) string {
 	statusCount := countStatuses(report)
 	if statusCount.errors == 0 && statusCount.warnings == 0 {
 		return sectionHeading(name+": ready", isTTY)
@@ -127,10 +137,8 @@ func statusIndicator(symbol, color string, count uint, isTTY bool) string {
 	return fmt.Sprintf("%s %d", symbol, count)
 }
 
-func countStatuses(report health.ReadinessReport) (statusCount struct{ warnings, errors uint }) {
-	dependencies := append([]health.DependencyReport(nil), report.Host...)
-	dependencies = append(dependencies, report.Target...)
-	for _, dependency := range dependencies {
+func countStatuses(report []health.DependencyReport) (statusCount struct{ warnings, errors uint }) {
+	for _, dependency := range report {
 		switch dependency.Status {
 		case health.CheckStatusWarning:
 			statusCount.warnings++
@@ -139,6 +147,16 @@ func countStatuses(report health.ReadinessReport) (statusCount struct{ warnings,
 		}
 	}
 	return
+}
+
+func dependenciesInScope(dependencies []health.DependencyReport, scope health.DependencyScope) []health.DependencyReport {
+	matching := make([]health.DependencyReport, 0, len(dependencies))
+	for _, dependency := range dependencies {
+		if dependency.Scope == scope {
+			matching = append(matching, dependency)
+		}
+	}
+	return matching
 }
 
 func dependencyGroupStatus(dependencies []health.DependencyReport) health.CheckStatus {
