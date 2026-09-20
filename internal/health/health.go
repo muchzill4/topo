@@ -15,6 +15,7 @@ const (
 )
 
 type DependencyReport struct {
+	Scope  DependencyScope
 	ID     DependencyID
 	Name   string
 	Status CheckStatus
@@ -27,15 +28,10 @@ type TargetDetails struct {
 	IsLocalhost bool
 }
 
-type ReadinessReport struct {
-	Host   []DependencyReport
-	Target []DependencyReport
-}
-
 type HealthReport struct {
 	TargetDetails    TargetDetails
-	Deployment       ReadinessReport
-	ProjectDiscovery ReadinessReport
+	Deployment       []DependencyReport
+	ProjectDiscovery []DependencyReport
 }
 
 func Check(ctx context.Context, options HealthCheckOptions) HealthReport {
@@ -45,11 +41,11 @@ func Check(ctx context.Context, options HealthCheckOptions) HealthReport {
 }
 
 func (h EvaluatedHealthCheck) Report(target TargetDetails) HealthReport {
-	deployment := toReadinessReport(h.Deployment)
-	discovery := toReadinessReport(h.ProjectDiscovery)
-	downgradeMissingTargetForProjectDiscovery(discovery.Target)
-	deployment.Target = removeSuccessfulTargetPrerequisiteReports(deployment.Target, target)
-	discovery.Target = removeSuccessfulTargetPrerequisiteReports(discovery.Target, target)
+	deployment := toDependencyReports(h.Deployment.Dependencies)
+	discovery := toDependencyReports(h.ProjectDiscovery.Dependencies)
+	downgradeMissingTargetForProjectDiscovery(discovery)
+	deployment = removeSuccessfulTargetPrerequisiteReports(deployment, target)
+	discovery = removeSuccessfulTargetPrerequisiteReports(discovery, target)
 	return HealthReport{
 		TargetDetails:    target,
 		Deployment:       deployment,
@@ -87,15 +83,8 @@ func targetDetails(options HealthCheckOptions) TargetDetails {
 	}
 }
 
-func toReadinessReport(evaluatedHealthCheck EvaluatedReadinessCheck) ReadinessReport {
-	return ReadinessReport{
-		Host:   toDependencyReports(evaluatedHealthCheck.Host),
-		Target: toDependencyReports(evaluatedHealthCheck.Target),
-	}
-}
-
 func ToDependencyReport(status EvaluatedDependency) DependencyReport {
-	report := DependencyReport{ID: status.ID, Name: status.Label}
+	report := DependencyReport{Scope: status.Scope, ID: status.ID, Name: status.Label}
 	if status.Result.Failure == nil {
 		report.Status = CheckStatusOK
 		report.Value = status.Result.SuccessValue

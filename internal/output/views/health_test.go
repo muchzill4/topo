@@ -16,22 +16,14 @@ func TestHealthReport(t *testing.T) {
 		t.Run("renders deployment and project management sections", func(t *testing.T) {
 			toPrint := views.HealthReport{
 				TargetDetails: health.TargetDetails{},
-				Deployment: health.ReadinessReport{
-					Host: []health.DependencyReport{
-						{Name: "Computer", Status: health.CheckStatusWarning},
-						{Name: "Docker Compose", Status: health.CheckStatusError},
-					},
-					Target: []health.DependencyReport{
-						{Name: "Docker API via SSH", Status: health.CheckStatusOK},
-					},
+				Deployment: []health.DependencyReport{
+					{Scope: health.DependencyScopeHost, Name: "Computer", Status: health.CheckStatusWarning},
+					{Scope: health.DependencyScopeHost, Name: "Docker Compose", Status: health.CheckStatusError},
+					{Scope: health.DependencyScopeTarget, Name: "Docker API via SSH", Status: health.CheckStatusOK},
 				},
-				ProjectDiscovery: health.ReadinessReport{
-					Host: []health.DependencyReport{
-						{Name: "OpenSSH", Status: health.CheckStatusOK},
-					},
-					Target: []health.DependencyReport{
-						{Name: "Hardware Info (lscpu)", Status: health.CheckStatusOK},
-					},
+				ProjectDiscovery: []health.DependencyReport{
+					{Scope: health.DependencyScopeHost, Name: "OpenSSH", Status: health.CheckStatusOK},
+					{Scope: health.DependencyScopeTarget, Name: "Hardware Info (lscpu)", Status: health.CheckStatusOK},
 				},
 			}
 			var out bytes.Buffer
@@ -60,13 +52,12 @@ func TestHealthReport(t *testing.T) {
 	t.Run("AsPlain", func(t *testing.T) {
 		t.Run("renders a warning-only report as ready", func(t *testing.T) {
 			toPrint := views.HealthReport{
-				ProjectDiscovery: health.ReadinessReport{
-					Target: []health.DependencyReport{{
-						Name:   "Connectivity",
-						Status: health.CheckStatusWarning,
-						Value:  "target not specified; cannot calculate project compatibility",
-					}},
-				},
+				ProjectDiscovery: []health.DependencyReport{{
+					Scope:  health.DependencyScopeTarget,
+					Name:   "Connectivity",
+					Status: health.CheckStatusWarning,
+					Value:  "target not specified; cannot calculate project compatibility",
+				}},
 			}
 			var out bytes.Buffer
 
@@ -81,18 +72,14 @@ func TestHealthReport(t *testing.T) {
 		t.Run("preserves the legacy combined target dependencies", func(t *testing.T) {
 			toPrint := views.HealthReport{
 				TargetDetails: health.TargetDetails{Destination: "ssh://user@my-target"},
-				Deployment: health.ReadinessReport{
-					Host: []health.DependencyReport{{Name: "Topo", Status: health.CheckStatusOK}},
-					Target: []health.DependencyReport{
-						{ID: health.DependencyIDConnectivity, Name: "Connectivity", Status: health.CheckStatusOK},
-						{Name: "Container Engine", Status: health.CheckStatusOK},
-					},
+				Deployment: []health.DependencyReport{
+					{Scope: health.DependencyScopeHost, Name: "Topo", Status: health.CheckStatusOK},
+					{Scope: health.DependencyScopeTarget, ID: health.DependencyIDConnectivity, Name: "Connectivity", Status: health.CheckStatusOK},
+					{Scope: health.DependencyScopeTarget, Name: "Container Engine", Status: health.CheckStatusOK},
 				},
-				ProjectDiscovery: health.ReadinessReport{
-					Target: []health.DependencyReport{
-						{ID: health.DependencyIDConnectivity, Name: "Connectivity", Status: health.CheckStatusOK},
-						{Name: "Hardware Info", Status: health.CheckStatusOK},
-					},
+				ProjectDiscovery: []health.DependencyReport{
+					{Scope: health.DependencyScopeTarget, ID: health.DependencyIDConnectivity, Name: "Connectivity", Status: health.CheckStatusOK},
+					{Scope: health.DependencyScopeTarget, Name: "Hardware Info", Status: health.CheckStatusOK},
 				},
 			}
 			var out bytes.Buffer
