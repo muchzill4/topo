@@ -2,53 +2,24 @@ package docker
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"os/exec"
 
+	"github.com/arm/topo/internal/deploy"
 	"github.com/arm/topo/internal/project"
-	"golang.org/x/sync/errgroup"
 )
 
-func TransferImagesViaPipe(ctx context.Context, output io.Writer, source, destination Host, scope project.Scope) error {
-	images, err := project.ImageNames(scope)
-	if err != nil {
-		return err
+func TransferImagesViaPipe(
+	ctx context.Context,
+	output io.Writer,
+	source, destination Host,
+	scope project.Scope,
+) error {
+	saveImage := func(ctx context.Context, image string) *exec.Cmd {
+		return Command(ctx, source, "save", image)
 	}
-
-	var group errgroup.Group
-	for _, image := range images {
-		group.Go(func() error {
-			return transferImageViaPipe(ctx, output, source, destination, image)
-		})
+	loadImage := func(ctx context.Context) *exec.Cmd {
+		return Command(ctx, destination, "load")
 	}
-	return group.Wait()
-}
-
-func transferImageViaPipe(ctx context.Context, output io.Writer, source, destination Host, image string) error {
-	pipeReader, pipeWriter := io.Pipe()
-
-	saveCommand := Command(ctx, source, "save", image)
-	loadCommand := Command(ctx, destination, "load")
-	saveCommand.Stdout = pipeWriter
-	saveCommand.Stderr = output
-	loadCommand.Stdin = pipeReader
-	loadCommand.Stdout = output
-	loadCommand.Stderr = output
-
-	var group errgroup.Group
-	group.Go(func() error {
-		defer pipeWriter.Close() //nolint:errcheck
-		if err := saveCommand.Run(); err != nil {
-			return fmt.Errorf("failed to save image: %w", err)
-		}
-		return nil
-	})
-	group.Go(func() error {
-		defer pipeReader.Close() //nolint:errcheck
-		if err := loadCommand.Run(); err != nil {
-			return fmt.Errorf("failed to load image: %w", err)
-		}
-		return nil
-	})
-	return group.Wait()
+	return deploy.TransferImagesViaPipe(ctx, output, scope, saveImage, loadImage)
 }
