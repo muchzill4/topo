@@ -125,7 +125,7 @@ func TestBuildProcessingDomainLookup(t *testing.T) {
 		assert.Equal(t, want, got)
 	})
 
-	t.Run("skips non remoteproc containers", func(t *testing.T) {
+	t.Run("uses the declared domain regardless of runtime", func(t *testing.T) {
 		input := []docker.InspectedContainer{
 			{
 				ID: "abc123",
@@ -137,6 +137,33 @@ func TestBuildProcessingDomainLookup(t *testing.T) {
 				},
 			},
 		}
+
+		got := docker.BuildProcessingDomainLookup(input)
+
+		assert.Equal(t, map[string]string{"abc123": "m0"}, got)
+	})
+
+	t.Run("uses a trimmed annotation without a runtime", func(t *testing.T) {
+		input := []docker.InspectedContainer{{
+			ID: "abc123",
+			HostConfig: docker.InspectedHostConfig{
+				Annotations: map[string]string{"remoteproc.name": " m0 "},
+			},
+		}}
+
+		got := docker.BuildProcessingDomainLookup(input)
+
+		assert.Equal(t, map[string]string{"abc123": "m0"}, got)
+	})
+
+	t.Run("skips blank processing domain annotations", func(t *testing.T) {
+		input := []docker.InspectedContainer{{
+			ID: "abc123",
+			HostConfig: docker.InspectedHostConfig{
+				Runtime:     "runc",
+				Annotations: map[string]string{"remoteproc.name": " "},
+			},
+		}}
 
 		got := docker.BuildProcessingDomainLookup(input)
 

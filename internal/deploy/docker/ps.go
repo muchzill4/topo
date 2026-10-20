@@ -12,7 +12,6 @@ import (
 )
 
 const (
-	remoteprocRuntimeName    = "io.containerd.remoteproc.v1"
 	remoteprocNameAnnotation = "remoteproc.name"
 	hostProcessingDomain     = "Linux Host"
 	dockerShortIDLength      = 12
@@ -157,10 +156,6 @@ func BuildProcessingDomainLookup(inspected []InspectedContainer) map[string]stri
 	lookup := map[string]string{}
 
 	for _, container := range inspected {
-		if container.HostConfig.Runtime != remoteprocRuntimeName {
-			continue
-		}
-
 		processingDomain := strings.TrimSpace(container.HostConfig.Annotations[remoteprocNameAnnotation])
 		if processingDomain == "" {
 			continue

@@ -40,9 +40,9 @@ func Deploy(ctx context.Context, output io.Writer, scope project.Scope, options 
 		localEngine = docker.Engine{Host: docker.LocalHost}
 		portConflictMessages = docker.ContainerPortConflictMessages
 	} else {
-		if err := podman.EnsureNoRuntimeSet(scope); err != nil {
-			return err
-		}
+		// if err := podman.EnsureNoRuntimeSet(scope); err != nil {
+		// 	return err
+		// }
 		localEngine = podman.Engine{Socket: podman.LocalSocket}
 		portConflictMessages = podman.ContainerPortConflictMessages
 	}

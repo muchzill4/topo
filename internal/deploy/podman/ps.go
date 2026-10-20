@@ -56,7 +56,17 @@ func ListContainers(scope project.Scope, target ssh.Destination, hostname string
 	if err != nil {
 		return nil, err
 	}
-	return RemapAddresses(raws, hostname), nil
+	containers = RemapAddresses(raws, hostname)
+	domains, err := getProcessingDomains(raws, socket)
+	if err != nil {
+		return nil, err
+	}
+	for i, raw := range raws {
+		if domain, ok := domains[raw.ID]; ok {
+			containers[i].ProcessingDomain = domain
+		}
+	}
+	return containers, nil
 }
 
 func getContainers(scope project.Scope, socket Socket, all bool) (string, error) {
@@ -96,6 +106,52 @@ func ParseContainers(rawJSON string) ([]PSContainer, error) {
 		raws = append(raws, raw)
 	}
 	return raws, nil
+}
+
+func getProcessingDomains(raws []PSContainer, socket Socket) (map[string]string, error) {
+	args := []string{"inspect", "--type", "container"}
+	for _, raw := range raws {
+		if raw.ID != "" {
+			args = append(args, raw.ID)
+		}
+	}
+	if len(args) == 3 {
+		return map[string]string{}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd := Command(context.Background(), socket, args...)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("podman inspect: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return ParseProcessingDomains(stdout.String())
+}
+
+func ParseProcessingDomains(rawJSON string) (map[string]string, error) {
+	var inspected []struct {
+		ID     string `json:"Id"`
+		Config struct {
+			Annotations map[string]string `json:"Annotations"`
+		} `json:"Config"`
+	}
+	if err := json.Unmarshal([]byte(rawJSON), &inspected); err != nil {
+		return nil, err
+	}
+
+	domains := map[string]string{}
+	for _, container := range inspected {
+		domain := strings.TrimSpace(container.Config.Annotations["remoteproc.name"])
+		if domain == "" || container.ID == "" {
+			continue
+		}
+		domains[container.ID] = domain
+		if len(container.ID) > 12 {
+			domains[container.ID[:12]] = domain
+		}
+	}
+	return domains, nil
 }
 
 func RemapAddresses(raws []PSContainer, hostname string) []Container {
