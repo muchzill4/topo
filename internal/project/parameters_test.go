@@ -1,6 +1,7 @@
 package project_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,11 +10,33 @@ import (
 	"github.com/arm/topo/internal/parameter"
 	"github.com/arm/topo/internal/project"
 	"github.com/arm/topo/internal/testutil"
+	"github.com/arm/topo/pkg/plugin/suggestions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLoadParameters(t *testing.T) {
+	t.Run("preserves advisory hints as JSON values", func(t *testing.T) {
+		path := testutil.RequireWriteComposeFile(t, t.TempDir(), `x-topo:
+  parameters:
+    MODEL:
+      hints:
+        model.task: text-generation
+        memory: 42
+        formats: [pte, gguf]
+        options: {enabled: true}
+`)
+
+		got, err := project.LoadParameters(project.Scope{ComposeFile: path})
+
+		require.NoError(t, err)
+		assert.Equal(t, []parameter.Parameter{{Name: "MODEL", Hints: suggestions.Hints{
+			"model.task": json.RawMessage(`"text-generation"`),
+			"memory":     json.RawMessage(`42`),
+			"formats":    json.RawMessage(`["pte","gguf"]`),
+			"options":    json.RawMessage(`{"enabled":true}`),
+		}}}, got)
+	})
 	t.Run("loads parameter metadata", func(t *testing.T) {
 		path := testutil.RequireWriteComposeFile(t, t.TempDir(), `x-topo:
   parameters:

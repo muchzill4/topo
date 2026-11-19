@@ -2,6 +2,7 @@ package project
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"os"
 	"slices"
@@ -9,6 +10,7 @@ import (
 	"github.com/arm/topo/internal/env"
 	"github.com/arm/topo/internal/output/logger"
 	"github.com/arm/topo/internal/parameter"
+	"github.com/arm/topo/pkg/plugin/suggestions"
 	"github.com/compose-spec/compose-go/v2/template"
 	"gopkg.in/yaml.v3"
 )
@@ -69,8 +71,19 @@ func loadParameterMetadata(composeFilePath string) ([]parameter.Parameter, error
 				Fact:     param.Source.Fact,
 			}
 		}
+		var hints suggestions.Hints
+		if len(param.Hints) > 0 {
+			encoded, err := json.Marshal(param.Hints)
+			if err != nil {
+				return nil, fmt.Errorf("encoding hints for %s: %w", name, err)
+			}
+			if err := json.Unmarshal(encoded, &hints); err != nil {
+				return nil, fmt.Errorf("decoding hints for %s: %w", name, err)
+			}
+		}
 		parameters = append(parameters, parameter.Parameter{
 			Name:        name,
+			Hints:       hints,
 			Description: param.Description,
 			Example:     param.Example,
 			Source:      source,
@@ -131,9 +144,10 @@ type parameterMetadata struct {
 }
 
 type parameterFields struct {
-	Source      *sourceFields `yaml:"source,omitempty"`
-	Description string        `yaml:"description"`
-	Example     string        `yaml:"example,omitempty"`
+	Hints       map[string]any `yaml:"hints,omitempty"`
+	Source      *sourceFields  `yaml:"source,omitempty"`
+	Description string         `yaml:"description"`
+	Example     string         `yaml:"example,omitempty"`
 }
 
 type sourceFields struct {
