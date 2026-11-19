@@ -5,8 +5,10 @@ Interactive configuration discovers installed `topo-plugin-*` executables in the
 `topo configure --plugin-dir /path/to/plugins` to override it (`clone` also supports
 this flag). Non-interactive configuration does not load plugins.
 
-Suggestions providers receive the parameter's advisory `hints`, current value, and
-plugin observations when a target is supplied. Available actions appear in the
+Suggestions providers receive project metadata in `Request.Project` (currently
+`Name`, taken from `x-topo.name`), the parameter's advisory `hints`, current value,
+and plugin observations when a target is supplied. The same project metadata is
+included in `RunAction` requests. If `x-topo.name` is absent, the name is empty. Available actions appear in the
 prompt footer, starting with `Ctrl+O`. Actions run only when explicitly selected.
 The action receives a fresh snapshot of the edited value. The AI Portal example
 only offers model selection for parameters with a nonempty `model.task` or

@@ -18,12 +18,15 @@ import (
 func TestSuggestionsRPCPlugin(t *testing.T) {
 	for _, method := range []string{"Suggestions", "RunAction"} {
 		t.Run(method, func(t *testing.T) {
-			provider := newSuggestionsRPCClient(t, observationConsumer{})
-			request := suggestions.Request{TargetObservations: observations.Tree{
-				"arm": observations.Tree{"fancy": observations.Tree{
-					"target": observations.Tree{"cpu_count": int64(9007199254740993)},
-				}},
-			}}
+			requests := make(chan suggestions.Request, 1)
+			provider := newSuggestionsRPCClient(t, observationConsumer{requests: requests})
+			request := suggestions.Request{
+				Project: suggestions.ProjectMetadata{Name: "Image segmentation"},
+				TargetObservations: observations.Tree{
+					"arm": observations.Tree{"fancy": observations.Tree{
+						"target": observations.Tree{"cpu_count": int64(9007199254740993)},
+					}},
+				}}
 
 			var got []suggestions.Suggestion
 			var err error
@@ -37,6 +40,7 @@ func TestSuggestionsRPCPlugin(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, []suggestions.Suggestion{{Value: "9007199254740993"}}, got)
+			assert.Equal(t, suggestions.ProjectMetadata{Name: "Image segmentation"}, (<-requests).Project)
 		})
 	}
 }
@@ -112,9 +116,12 @@ func (p *cancellableSuggestions) RunAction(
 	return suggestions.ActionResponse{}, ctx.Err()
 }
 
-type observationConsumer struct{}
+type observationConsumer struct {
+	requests chan suggestions.Request
+}
 
-func (observationConsumer) Suggestions(_ context.Context, request suggestions.Request) (suggestions.Response, error) {
+func (p observationConsumer) Suggestions(_ context.Context, request suggestions.Request) (suggestions.Response, error) {
+	p.requests <- request
 	var data struct {
 		CPUCount int64 `json:"cpu_count"`
 	}
@@ -126,9 +133,10 @@ func (observationConsumer) Suggestions(_ context.Context, request suggestions.Re
 	}}, nil
 }
 
-func (observationConsumer) RunAction(
+func (p observationConsumer) RunAction(
 	_ context.Context, _ suggestions.ActionID, request suggestions.Request,
 ) (suggestions.ActionResponse, error) {
+	p.requests <- request
 	var count int64
 	if err := request.TargetObservations.Decode("arm.fancy.target.cpu_count", &count); err != nil {
 		return suggestions.ActionResponse{}, err

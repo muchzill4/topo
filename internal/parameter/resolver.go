@@ -15,6 +15,7 @@ type Source struct {
 
 type Parameter struct {
 	Name          string
+	Project       suggestions.ProjectMetadata
 	Hints         suggestions.Hints
 	Source        *Source
 	Description   string

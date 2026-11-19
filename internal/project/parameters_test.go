@@ -16,6 +16,37 @@ import (
 )
 
 func TestLoadParameters(t *testing.T) {
+	t.Run("passes the x-topo project name to every parameter", func(t *testing.T) {
+		path := testutil.RequireWriteComposeFile(t, t.TempDir(), `name: compose-project
+x-topo:
+  name: Image segmentation
+  parameters:
+    MODEL: {}
+    PORT: {}
+`)
+
+		got, err := project.LoadParameters(project.Scope{ComposeFile: path})
+
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []parameter.Parameter{
+			{Name: "MODEL", Project: suggestions.ProjectMetadata{Name: "Image segmentation"}},
+			{Name: "PORT", Project: suggestions.ProjectMetadata{Name: "Image segmentation"}},
+		}, got)
+	})
+
+	t.Run("leaves project metadata empty when x-topo name is absent", func(t *testing.T) {
+		path := testutil.RequireWriteComposeFile(t, t.TempDir(), `name: compose-project
+x-topo:
+  parameters:
+    MODEL: {}
+`)
+
+		got, err := project.LoadParameters(project.Scope{ComposeFile: path})
+
+		require.NoError(t, err)
+		assert.Equal(t, []parameter.Parameter{{Name: "MODEL", Project: suggestions.ProjectMetadata{}}}, got)
+	})
+
 	t.Run("preserves advisory hints as JSON values", func(t *testing.T) {
 		path := testutil.RequireWriteComposeFile(t, t.TempDir(), `x-topo:
   parameters:

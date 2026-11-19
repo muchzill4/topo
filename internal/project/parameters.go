@@ -83,6 +83,7 @@ func loadParameterMetadata(composeFilePath string) ([]parameter.Parameter, error
 		}
 		parameters = append(parameters, parameter.Parameter{
 			Name:        name,
+			Project:     suggestions.ProjectMetadata{Name: raw.Metadata.Name},
 			Hints:       hints,
 			Description: param.Description,
 			Example:     param.Example,
@@ -139,6 +140,7 @@ type parameterFile struct {
 }
 
 type parameterMetadata struct {
+	Name       string                     `yaml:"name"`
 	Parameters map[string]parameterFields `yaml:"parameters,omitempty"`
 	Args       map[string]parameterFields `yaml:"args,omitempty"`
 }

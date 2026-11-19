@@ -14,7 +14,10 @@ func (r *InteractiveResolver) parameterActions(parameter Parameter) ([]term.Prom
 		ctx = context.Background()
 	}
 	request := suggestions.Request{
-		Hints: parameter.Hints, CurrentValue: parameter.ExistingValue, TargetObservations: r.TargetObservations,
+		Project:            parameter.Project,
+		Hints:              parameter.Hints,
+		CurrentValue:       parameter.ExistingValue,
+		TargetObservations: r.TargetObservations,
 	}
 	// These control keys do not replace navigation, editing, submission, or cancellation.
 	keys := []rune{15, 7, 24, 29, 30, 31, 28}

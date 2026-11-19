@@ -23,10 +23,12 @@ func TestInteractiveResolver(t *testing.T) {
 			resolver.TargetObservations = observations.Tree{"memory": int64(42)}
 			parameters := []parameter.Parameter{{
 				Name: "MODEL", ExistingValue: new("old"),
-				Hints: suggestions.Hints{"model.task": json.RawMessage(`"chat"`)},
+				Project: suggestions.ProjectMetadata{Name: "Image segmentation"},
+				Hints:   suggestions.Hints{"model.task": json.RawMessage(`"chat"`)},
 			}}
 			_, err := resolver.Resolve(parameters)
 			require.NoError(t, err)
+			assert.Equal(t, suggestions.ProjectMetadata{Name: "Image segmentation"}, provider.discoveryRequest.Project)
 
 			got, err := prompt.Actions[1].Run(context.Background(), "edited")
 
@@ -34,7 +36,7 @@ func TestInteractiveResolver(t *testing.T) {
 			assert.Equal(t, "selected", got)
 			assert.Equal(t, "second", string(provider.actionID))
 			assert.Equal(t, suggestions.Request{
-				Hints:        suggestions.Hints{"model.task": json.RawMessage(`"chat"`)},
+				Project: suggestions.ProjectMetadata{Name: "Image segmentation"}, Hints: suggestions.Hints{"model.task": json.RawMessage(`"chat"`)},
 				CurrentValue: new("edited"), TargetObservations: observations.Tree{"memory": int64(42)},
 			}, provider.request)
 			assert.Equal(t, "   Press Enter to continue · Ctrl+O to Open portal · Ctrl+G to Other action · Ctrl+C to cancel",
@@ -168,11 +170,13 @@ func acceptPromptInitial(prompt term.Prompt) (string, error) {
 }
 
 type actionProvider struct {
-	actionID suggestions.ActionID
-	request  suggestions.Request
+	discoveryRequest suggestions.Request
+	actionID         suggestions.ActionID
+	request          suggestions.Request
 }
 
-func (*actionProvider) Suggestions(context.Context, suggestions.Request) (suggestions.Response, error) {
+func (p *actionProvider) Suggestions(_ context.Context, request suggestions.Request) (suggestions.Response, error) {
+	p.discoveryRequest = request
 	return suggestions.Response{AvailableActions: []suggestions.Action{
 		{ID: "first", Label: "Open portal"}, {ID: "second", Label: "Other action"},
 	}}, nil

@@ -27,6 +27,7 @@ func (p *SuggestionsRPCPlugin) Client(_ *goplugin.MuxBroker, client *rpc.Client)
 
 // SuggestionRequest preserves present-but-empty values across gob, which omits zero fields.
 type SuggestionRequest struct {
+	Project            suggestions.ProjectMetadata
 	Hints              suggestions.Hints
 	HasCurrentValue    bool
 	CurrentValue       string
@@ -39,6 +40,7 @@ func newSuggestionRequest(request suggestions.Request) (SuggestionRequest, error
 		return SuggestionRequest{}, fmt.Errorf("encoding target observations: %w", err)
 	}
 	wire := SuggestionRequest{
+		Project:            request.Project,
 		Hints:              request.Hints,
 		TargetObservations: encoded,
 		HasCurrentValue:    request.CurrentValue != nil,
@@ -50,7 +52,7 @@ func newSuggestionRequest(request suggestions.Request) (SuggestionRequest, error
 }
 
 func (r SuggestionRequest) request() (suggestions.Request, error) {
-	request := suggestions.Request{Hints: r.Hints}
+	request := suggestions.Request{Project: r.Project, Hints: r.Hints}
 	if err := json.Unmarshal(r.TargetObservations, &request.TargetObservations); err != nil {
 		return suggestions.Request{}, fmt.Errorf("decoding target observations: %w", err)
 	}
