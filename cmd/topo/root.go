@@ -281,7 +281,7 @@ func newConfigurationResolver(cmd *cobra.Command, assignments, removals []string
 		resolvers = append(resolvers, targetResolver)
 	}
 	if promptsEnabled(cmd) && term.IsTerminal(output) && term.IsTerminal(os.Stdin) {
-		resolvers = append(resolvers, parameter.NewInteractiveResolverForTerminal(os.Stdin, output))
+		resolvers = append(resolvers, pluginInteractiveResolver{cmd: cmd, output: output})
 	}
 	return parameter.NewStrictResolverChain(resolvers...), nil
 }

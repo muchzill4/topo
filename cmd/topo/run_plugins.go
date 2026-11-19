@@ -37,15 +37,9 @@ func newRunPluginsCommand() *cobra.Command {
 			ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 			defer stop()
 
-			directory, err := cmd.Flags().GetString("plugin-dir")
+			directory, err := pluginDirectory(cmd)
 			if err != nil {
 				return err
-			}
-			if directory == "" {
-				directory, err = plugins.Directory()
-				if err != nil {
-					return err
-				}
 			}
 			allPlugins, failures, err := plugins.LoadAll(ctx, directory)
 			if allPlugins != nil {
@@ -86,7 +80,7 @@ func newRunPluginsCommand() *cobra.Command {
 			return encoder.Encode(reports)
 		},
 	}
-	cmd.Flags().String("plugin-dir", "", "plugin discovery directory (default: topo/plugins under the user configuration directory)")
+	addPluginDirectoryFlag(cmd)
 	addTargetFlag(cmd)
 	addTimeoutFlag(cmd, 5*time.Minute)
 	return cmd

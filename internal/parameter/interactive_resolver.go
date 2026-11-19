@@ -1,17 +1,23 @@
 package parameter
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/arm/topo/internal/output/term"
+	"github.com/arm/topo/pkg/plugin/observations"
+	"github.com/arm/topo/pkg/plugin/suggestions"
 )
 
 // InteractiveResolver resolves parameter definitions to changes by prompting for values.
 type InteractiveResolver struct {
-	readPrompt func(term.Prompt) (string, error)
-	palette    term.Palette
+	Context            context.Context
+	Providers          []suggestions.Provider
+	TargetObservations observations.Tree
+	readPrompt         func(term.Prompt) (string, error)
+	palette            term.Palette
 }
 
 func NewInteractiveResolverForTerminal(in *os.File, out *os.File) *InteractiveResolver {
@@ -34,13 +40,18 @@ func (r *InteractiveResolver) Resolve(parameters []Parameter) (Changes, error) {
 			initial = *parameter.ExistingValue
 		}
 
+		actions, labels, err := r.parameterActions(parameter)
+		if err != nil {
+			return nil, err
+		}
 		value, err := r.readPrompt(term.Prompt{
+			Actions: actions,
 			Validate: func(input string) bool {
 				return parameter.AssertSatisfiedBy(contentfulStringOrNil(input)) == nil
 			},
 			Content: formatParameterPromptContent(parameter, i+1, len(parameters), r.palette),
 			Hint: func(input string, invalid bool) string {
-				return formatParameterPromptHint(parameter, input, invalid, r.palette)
+				return formatParameterPromptHint(parameter, input, invalid, labels, r.palette)
 			},
 			Initial: initial,
 			Prefix:  "   " + r.palette.Color(term.Magenta, ">") + " ",
@@ -87,7 +98,9 @@ func formatParameterPromptContent(parameter Parameter, number, total int, palett
 	return lines
 }
 
-func formatParameterPromptHint(parameter Parameter, input string, invalid bool, palette term.Palette) string {
+func formatParameterPromptHint(
+	parameter Parameter, input string, invalid bool, actionHints string, palette term.Palette,
+) string {
 	message := "Enter a value to continue"
 	if input != "" || parameter.AssertSatisfiedBy(nil) == nil {
 		message = "Press Enter to continue"
@@ -97,7 +110,7 @@ func formatParameterPromptHint(parameter Parameter, input string, invalid bool, 
 	if invalid {
 		message = fmt.Sprintf("%s %s is required, enter a value to continue", palette.Color(term.Red, "✗"), parameter.Name)
 	}
-	return "   " + message + palette.Color(term.Dim, " · Ctrl+C to cancel")
+	return "   " + message + actionHints + palette.Color(term.Dim, " · Ctrl+C to cancel")
 }
 
 func contentfulStringOrNil(input string) *string {
