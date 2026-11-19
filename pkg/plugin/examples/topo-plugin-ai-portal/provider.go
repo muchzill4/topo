@@ -56,7 +56,7 @@ func (p Provider) RunAction(
 	if id != chooseModel {
 		return suggestions.ActionResponse{}, fmt.Errorf("unknown action %q", id)
 	}
-	// RPC does not forward context deadlines, so bound the handoff inside the plugin too.
+	// Also bound abandoned browser handoffs while the configuration prompt remains open.
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	query := BuildModelQuery(request)

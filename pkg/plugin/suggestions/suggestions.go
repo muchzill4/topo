@@ -9,6 +9,8 @@ import (
 
 type Provider interface {
 	Suggestions(context.Context, Request) (Response, error)
+	// RunAction must stop and release resources when its context is cancelled.
+	// Interactive hosts cancel actions when the user submits a value or leaves the prompt.
 	RunAction(context.Context, ActionID, Request) (ActionResponse, error)
 }
 
