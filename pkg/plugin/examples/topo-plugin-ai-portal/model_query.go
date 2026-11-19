@@ -9,7 +9,7 @@ import (
 // BuildModelQuery interprets advisory project hints and target observations as Portal filters.
 // Unsupported or malformed metadata leaves the corresponding filter unset.
 func BuildModelQuery(request suggestions.Request) ModelQuery {
-	var query ModelQuery
+	query := ModelQuery{ProjectName: strings.TrimSpace(request.Project.Name)}
 	for key, destination := range map[string]*string{
 		"model.task": &query.Task, "model.format": &query.Format,
 	} {

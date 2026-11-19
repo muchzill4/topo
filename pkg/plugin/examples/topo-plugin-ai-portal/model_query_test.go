@@ -13,6 +13,24 @@ import (
 )
 
 func TestBuildModelQuery(t *testing.T) {
+	t.Run("trims project names while preserving their contents", func(t *testing.T) {
+		request := suggestions.Request{Project: suggestions.ProjectMetadata{
+			Name: " \t模型 + demo:  50% & /?#\u2003",
+		}}
+
+		got := portal.BuildModelQuery(request)
+
+		assert.Equal(t, portal.ModelQuery{ProjectName: "模型 + demo:  50% & /?#"}, got)
+	})
+
+	t.Run("omits whitespace-only project names", func(t *testing.T) {
+		request := suggestions.Request{Project: suggestions.ProjectMetadata{Name: " \t\n\u2003"}}
+
+		got := portal.BuildModelQuery(request)
+
+		assert.Equal(t, portal.ModelQuery{}, got)
+	})
+
 	t.Run("uses ONNX text generator hints without assuming a backend", func(t *testing.T) {
 		request := suggestions.Request{Hints: suggestions.Hints{
 			"meta.type":    json.RawMessage(`"huggingface.repo-id"`),

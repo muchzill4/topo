@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
+	"strings"
 )
 
 type ModelQuery struct {
+	ProjectName  string
 	Task         string
 	Format       string
 	Runtime      string
@@ -58,7 +60,8 @@ func buildPortalURL(portalURL, callbackURL string, filters ModelQuery) (string, 
 	}
 	for key, value := range map[string]string{
 		"task": filters.Task, "format": filters.Format, "runtime": filters.Runtime,
-		"runtimeBackend": filters.Backend,
+		"runtimeBackend":  filters.Backend,
+		"topoProjectName": strings.TrimSpace(filters.ProjectName),
 	} {
 		query.Del(key)
 		if value != "" {
