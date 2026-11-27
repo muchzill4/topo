@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/arm/topo/pkg/plugin/observations"
 	"github.com/arm/topo/pkg/plugin/suggestions"
 	"github.com/arm/topo/pkg/plugin/transport"
 )
@@ -87,6 +88,16 @@ func (c *Collection) Close() {
 		loaded.Close()
 	}
 	c.cancel()
+}
+
+func (c *Collection) Observations() []observations.Provider {
+	var selected []observations.Provider
+	for _, loaded := range c.plugins {
+		if loaded.descriptor.Capability == transport.Observations {
+			selected = append(selected, observations.NewIdentityPrefixer(loaded.descriptor.ID, loaded))
+		}
+	}
+	return selected
 }
 
 func (c *Collection) Suggestions() []suggestions.Provider {

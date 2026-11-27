@@ -5,7 +5,8 @@ import (
 	"net/rpc"
 )
 
-// RPC contexts are not serialized. The host bounds the call with its own context.
+// RPC contexts are not serialized. The host bounds the call and the runner
+// callback with its own context, then terminates the process on return.
 func call(ctx context.Context, client *rpc.Client, method string, args, reply any) error {
 	if err := ctx.Err(); err != nil {
 		return err

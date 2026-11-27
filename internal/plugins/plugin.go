@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/arm/topo/pkg/plugin/observations"
 	"github.com/arm/topo/pkg/plugin/suggestions"
 	"github.com/arm/topo/pkg/plugin/transport"
 	goplugin "github.com/hashicorp/go-plugin"
@@ -27,8 +28,9 @@ func load(ctx context.Context, path string) (result *process, err error) {
 	client := goplugin.NewClient(&goplugin.ClientConfig{
 		HandshakeConfig: transport.Handshake,
 		Plugins: goplugin.PluginSet{
-			transport.DescribeKey:         &transport.DescribeRPCPlugin{},
-			string(transport.Suggestions): &transport.SuggestionsRPCPlugin{},
+			transport.DescribeKey:          &transport.DescribeRPCPlugin{},
+			string(transport.Observations): &transport.ObservationsRPCPlugin{},
+			string(transport.Suggestions):  &transport.SuggestionsRPCPlugin{},
 		},
 		Cmd:              exec.CommandContext(ctx, path),
 		AllowedProtocols: []goplugin.Protocol{goplugin.ProtocolNetRPC},
@@ -67,6 +69,26 @@ func load(ctx context.Context, path string) (result *process, err error) {
 
 func (p *process) Close() {
 	p.client.Kill()
+}
+
+func (p *process) ObserveTarget(ctx context.Context, runner observations.TargetRunner) (observations.Tree, error) {
+	if p.descriptor.Capability != transport.Observations {
+		return observations.Tree{}, fmt.Errorf("plugin %q does not advertise %s", p.path, transport.Observations)
+	}
+	raw, err := p.connection.Dispense(string(transport.Observations))
+	if err != nil {
+		return observations.Tree{}, fmt.Errorf("plugin %q advertised %s but its observations adapter failed: %w",
+			p.path, transport.Observations, err)
+	}
+	provider, ok := raw.(observations.Provider)
+	if !ok {
+		return observations.Tree{}, fmt.Errorf("plugin %q has an invalid observations RPC adapter", p.path)
+	}
+	result, err := provider.ObserveTarget(ctx, runner)
+	if err != nil {
+		return observations.Tree{}, fmt.Errorf("observations plugin %q: %w", p.path, err)
+	}
+	return result, nil
 }
 
 // Suggestions returns candidates and actions without running any action.

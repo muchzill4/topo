@@ -8,6 +8,9 @@ mkdir -p "$output_directory"
 cd "$examples_directory"
 executable_suffix="$(go env GOEXE)"
 
+printf 'Building topo-plugin-memory\n'
+go build -o "$output_directory/topo-plugin-memory$executable_suffix" ./topo-plugin-memory
+
 printf 'Building topo-plugin-ai-portal\n'
 go build -o "$output_directory/topo-plugin-ai-portal$executable_suffix" ./topo-plugin-ai-portal
 
