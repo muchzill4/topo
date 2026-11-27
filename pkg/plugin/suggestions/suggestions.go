@@ -4,8 +4,12 @@ package suggestions
 import "context"
 
 type Provider interface {
+	// Suggestions returns candidates and lists available actions without executing them.
 	Suggestions(context.Context, Request) (Response, error)
-	// RunAction must stop and release resources when its context is cancelled.
+	// RunAction executes the selected action. Hosts must call it only after the user
+	// selects an action and must pass a fresh request reflecting the current state.
+	//
+	// The provider must stop and release resources when the context is cancelled.
 	// Interactive hosts cancel actions when the user submits a value or leaves the prompt.
 	RunAction(context.Context, ActionID, Request) (ActionResponse, error)
 }

@@ -61,7 +61,6 @@ func LoadAll(ctx context.Context, directory string) (result *Collection, failure
 	return collection, failures, nil
 }
 
-// Reject every member of a collision rather than selecting a provider by filename.
 func (c *Collection) rejectDuplicateIdentities() []error {
 	counts := make(map[string]int, len(c.plugins))
 	for _, loaded := range c.plugins {

@@ -69,7 +69,6 @@ func (p *process) Close() {
 	p.client.Kill()
 }
 
-// Suggestions returns candidates and actions without running any action.
 func (p *process) Suggestions(
 	ctx context.Context, request suggestions.Request,
 ) (suggestions.Response, error) {
@@ -84,7 +83,6 @@ func (p *process) Suggestions(
 	return result, nil
 }
 
-// RunAction is called only after a user selects an action, with a fresh request.
 func (p *process) RunAction(
 	ctx context.Context, id suggestions.ActionID, request suggestions.Request,
 ) (suggestions.ActionResponse, error) {
