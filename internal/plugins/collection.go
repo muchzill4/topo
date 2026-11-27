@@ -91,7 +91,7 @@ func (c *Collection) Close() {
 func (c *Collection) Suggestions() []suggestions.Provider {
 	var selected []suggestions.Provider
 	for _, loaded := range c.plugins {
-		if loaded.descriptor.Capability == transport.Suggestions {
+		if loaded.descriptor.HasCapability(transport.Suggestions) {
 			selected = append(selected, loaded)
 		}
 	}

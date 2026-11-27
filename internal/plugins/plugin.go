@@ -98,7 +98,7 @@ func (p *process) RunAction(
 }
 
 func (p *process) suggestionsProvider() (suggestions.Provider, error) {
-	if p.descriptor.Capability != transport.Suggestions {
+	if !p.descriptor.HasCapability(transport.Suggestions) {
 		return nil, fmt.Errorf("plugin %q does not advertise %s", p.path, transport.Suggestions)
 	}
 	raw, err := p.connection.Dispense(string(transport.Suggestions))

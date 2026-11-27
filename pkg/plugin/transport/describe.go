@@ -16,6 +16,10 @@ type Descriptor struct {
 	Capability Capability
 }
 
+func (d Descriptor) HasCapability(capability Capability) bool {
+	return d.Capability == capability
+}
+
 func (d Descriptor) Validate() error {
 	publisher, name, ok := strings.Cut(d.ID, ".")
 	if !ok || publisher == "" || name == "" || strings.Contains(name, ".") {
