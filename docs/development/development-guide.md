@@ -100,6 +100,20 @@ docker compose up
 
 The documentation preview is available at `http://localhost:3000` and automatically reloads when files change.
 
+## Updating the plugin wire schema
+
+Edit `pkg/plugin/transport/pluginpb/plugin.proto` and regenerate the committed
+bindings. Put Protocol Buffers `protoc` 30.2 on your PATH, then run:
+
+```sh
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.6
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
+# Ensure GOBIN (or GOPATH/bin if unset) is on PATH.
+go generate ./pkg/plugin/transport/pluginpb
+```
+
+Normal builds use the checked-in bindings and do not require these tools.
+
 ## Updating the catalog schema
 
 The catalog schema version is declared by the `go:generate` directive in `internal/catalog/catalog.go` and copied into `internal/catalog/catalog_schema_generated.go`. Its major component also selects the catalog version used by Topo.

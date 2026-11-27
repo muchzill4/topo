@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package topo.plugin.v1;
+
+option go_package = "github.com/arm/topo/pkg/plugin/transport/pluginpb";
+
+import "google/protobuf/empty.proto";
+
+service DescribeService {
+  rpc Describe(google.protobuf.Empty) returns (Descriptor);
+}
+
+service SuggestionsService {
+  rpc Suggestions(SuggestionRequest) returns (SuggestionResponse);
+  rpc RunAction(ActionRequest) returns (ActionResponse);
+}
+
+service ObservationsService {
+  rpc ObserveTarget(ObservationRequest) returns (ObservationResponse);
+}
+
+service TargetRunnerService {
+  rpc Run(RunRequest) returns (RunResponse);
+}
+
+message Descriptor {
+  string id = 1;
+  string capability = 2;
+}
+
+message SuggestionRequest {
+  string project_name = 1;
+  map<string, bytes> hints = 2;
+  optional string current_value = 3;
+  bytes target_observations = 4;
+}
+
+message Suggestion {
+  string value = 1;
+  string label = 2;
+}
+
+message Action {
+  string id = 1;
+  string label = 2;
+  string description = 3;
+}
+
+message SuggestionResponse {
+  repeated Suggestion suggestions = 1;
+  repeated Action available_actions = 2;
+}
+
+message ActionRequest {
+  string id = 1;
+  SuggestionRequest request = 2;
+}
+
+message ActionResponse {
+  repeated Suggestion suggestions = 1;
+}
+
+message ObservationRequest {
+  uint32 runner_broker_id = 1;
+}
+
+message ObservationResponse {
+  bytes tree = 1;
+}
+
+message RunRequest {
+  string command = 1;
+}
+
+message RunResponse {
+  bytes stdout = 1;
+  bytes stderr = 2;
+  // Command errors are data so callers can still read stdout and stderr.
+  bytes error = 3;
+}
